@@ -110,6 +110,10 @@ Refer to the comments in the source code for full documentation.
 
 Please use `bun pretty` to automatically format all files.
 
+### Building the shipped library
+
+`just build` ([just](https://github.com/casey/just), pwsh) fetches the `webview/` submodule if it is empty, builds the library for this OS and copies it to `build/` (`libwebview.dll`, `libwebview.dylib`, or `libwebview-<arch>.so`), where `src/ffi.ts` imports it from and the npm package ships it. On Windows it enters the Visual Studio dev shell from pwsh and runs CMake with ninja itself, no `cmd` or `.bat`; elsewhere it runs `bun scripts/build.ts`. Commit the result in `build/` so the published package carries it. `just pack` shows what `npm publish` would upload; `just publish` publishes.
+
 ### Prerequisites
 
 #### 🪟 On **Windows,** you need C++ Build Tools:
