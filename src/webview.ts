@@ -146,7 +146,7 @@ export class Webview {
     this.#handle =
       typeof debugOrHandle === "bigint" || typeof debugOrHandle === "number"
         ? debugOrHandle
-        : lib.symbols.webview_create(Number(debugOrHandle), window);
+        : (lib.symbols.webview_create(Number(debugOrHandle), window) as Pointer | null);
     if (size !== undefined) this.size = size;
     instances.push(this);
   }

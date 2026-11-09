@@ -1,6 +1,11 @@
-# webview-bun
+# sweetview-webview-bun
 
-[bun](https://bun.sh/) bindings for [webview](https://github.com/webview/webview/)
+[bun](https://bun.sh/) bindings for [webview](https://github.com/webview/webview/), forked from
+[webview-bun](https://github.com/tr1ckydev/webview-bun). Same API; the shipped library is built from
+[sweetview-webview](https://github.com/n0t-invented-here/sweetview-webview), which adds
+`webview_set_asset` (serve bytes at the webview's own origin) and `webview_set_background_color`
+to the C API. The `Webview` class does not wrap those two; call them over `bun:ffi` with the
+library path from `WEBVIEW_PATH` or the file under `build/`.
 
 Webview is a tiny cross-platform library to make **web-based GUIs for desktop applications**.
 
@@ -32,7 +37,7 @@ To manually update or install the latest version, follow the steps <a href="http
 </details>
 
 ```bash
-bun i webview-bun
+bun i sweetview-webview-bun
 ```
 
 ## Example
