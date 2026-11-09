@@ -1,4 +1,4 @@
 [submodule "webview"]
 	path = webview
-	url = https://github.com/mrowrpurr-forks/webview
-	branch = sweetview-background-color
+	url = https://github.com/n0t-invented-here/sweetview-webview.git
+	branch = sweetview
