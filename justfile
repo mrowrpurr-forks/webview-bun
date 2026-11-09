@@ -5,7 +5,9 @@
 set shell := ["pwsh", "-NoProfile", "-Command"]
 
 built := if os() == "windows" { "webview/build/core/Release/webview.dll" } else if os() == "macos" { "webview/build/core/Release/libwebview.dylib" } else { "webview/build/core/Release/libwebview.so" }
-shipped := if os() == "windows" { "build/libwebview.dll" } else if os() == "macos" { "build/libwebview.dylib" } else { "build/libwebview-" + arch() + ".so" }
+# Linux files are named by Bun's process.arch (x64, arm64), which scripts/build.ts and src/ffi.ts use; just's arch() says x86_64 / aarch64
+bun_arch := if arch() == "x86_64" { "x64" } else if arch() == "aarch64" { "arm64" } else { arch() }
+shipped := if os() == "windows" { "build/libwebview.dll" } else if os() == "macos" { "build/libwebview.dylib" } else { "build/libwebview-" + bun_arch + ".so" }
 
 # The webview submodule (the patched library source), fetched when the folder is empty
 [script("pwsh", "-NoProfile", "-File")]
