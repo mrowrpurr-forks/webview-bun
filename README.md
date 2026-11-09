@@ -37,13 +37,13 @@ To manually update or install the latest version, follow the steps <a href="http
 </details>
 
 ```bash
-bun i sweetview-webview-bun
+bun i @n1h/sweetview-webview-bun
 ```
 
 ## Example
 
 ```typescript
-import { Webview } from "webview-bun";
+import { Webview } from "@n1h/sweetview-webview-bun";
 
 const html = `
 <html>
@@ -145,8 +145,8 @@ brew install cmake ninja clang
 - Clone the repository along with the [webview](https://github.com/webview/webview) submodule.
 
   ```bash
-  git clone --recurse-submodules https://github.com/tr1ckydev/webview-bun
-  cd webview-bun
+  git clone --recurse-submodules --branch sweetview https://github.com/n0t-invented-here/sweetview-webview-bun
+  cd sweetview-webview-bun
   ```
 - Build the library for your platform.
 

@@ -55,6 +55,6 @@ clean:
 pack:
     npm pack --dry-run
 
-# Publish to npmjs (run `npm login` first)
+# Publish to npmjs (run `npm login` first); the package is scoped, so --access public
 publish:
-    npm publish
+    npm publish --access public

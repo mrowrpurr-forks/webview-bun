@@ -53,7 +53,7 @@ export class Webview {
    * ## Example
    *
    * ```ts
-   * import { Webview, SizeHint } from "webview-bun";
+   * import { Webview, SizeHint } from "@n1h/sweetview-webview-bun";
    *
    * const webview = new Webview();
    * webview.navigate("https://bun.sh/");
@@ -79,7 +79,7 @@ export class Webview {
    * ## Example
    *
    * ```ts
-   * import { Webview } from "webview-bun";
+   * import { Webview } from "@n1h/sweetview-webview-bun";
    *
    * const webview = new Webview();
    * webview.navigate("https://bun.sh/");
@@ -107,7 +107,7 @@ export class Webview {
    * ## Example
    *
    * ```ts
-   * import { Webview, SizeHint } from "webview-bun";
+   * import { Webview, SizeHint } from "@n1h/sweetview-webview-bun";
    *
    * // Create a new webview and change from the default size to a small fixed window
    * const webview = new Webview(true, {
@@ -239,7 +239,7 @@ export class Webview {
    *
    * ## Example
    * ```ts
-   * import { Webview } from "webview-bun";
+   * import { Webview } from "@n1h/sweetview-webview-bun";
    *
    * const html = `
    *   <html>
