@@ -9,13 +9,13 @@ built := if os() == "windows" { "webview/build/core/Release/webview.dll" } else 
 bun_arch := if arch() == "x86_64" { "x64" } else if arch() == "aarch64" { "arm64" } else { arch() }
 shipped := if os() == "windows" { "build/libwebview.dll" } else if os() == "macos" { "build/libwebview.dylib" } else { "build/libwebview-" + bun_arch + ".so" }
 
-# The webview submodule (the patched library source), fetched when the folder is empty
+# The webview submodule (the patched library source) at the commit this branch records: fetched when the folder is empty, moved there otherwise (switching branches does not move it by itself)
 [script("pwsh", "-NoProfile", "-File")]
 [extension(".ps1")]
 submodule:
     $ErrorActionPreference = "Stop"
-    if (Test-Path "webview/CMakeLists.txt") { exit 0 }
     git submodule update --init; if ($LASTEXITCODE) { exit $LASTEXITCODE }
+    Write-Host "webview at $((git -C webview rev-parse --short HEAD).Trim())"
 
 # Build the library from webview/ for this OS and copy it to build/ (Windows: VS 2022 Build Tools, CMake, ninja, no cmd or .bat; macOS: Xcode CLT, CMake, ninja, universal arm64+x86_64; Linux: clang, CMake, ninja, webkitgtk 6.0)
 [script("pwsh", "-NoProfile", "-File")]
