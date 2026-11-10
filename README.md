@@ -3,9 +3,17 @@
 [bun](https://bun.sh/) bindings for [webview](https://github.com/webview/webview/), forked from
 [webview-bun](https://github.com/tr1ckydev/webview-bun). Same API; the shipped library is built from
 [sweetview-webview](https://github.com/n0t-invented-here/sweetview-webview), which adds
-`webview_set_asset` (serve bytes at the webview's own origin) and `webview_set_background_color`
-to the C API. The `Webview` class does not wrap those two; call them over `bun:ffi` with the
-library path from `WEBVIEW_PATH` or the file under `build/`.
+`webview_set_asset` (serve bytes at the webview's own origin), `webview_set_background_color` and
+`webview_mouse_hook_install` / `webview_mouse_hook_remove` (a system-wide mouse hook: see every
+mouse event before any window does and swallow the ones you choose) to the C API. The `Webview`
+class does not wrap the first two; call them over `bun:ffi` with the library path from
+`WEBVIEW_PATH` or the file under `build/`. The mouse hook is wrapped: `installMouseHook(handler)`
+returns `{ dispose() }`; the handler gets `{ event, x, y, wheel }` (`MouseEvent.Move`, `LeftDown`,
+`LeftUp`, `RightDown`, `RightUp`, `MiddleDown`, `MiddleUp`, `Wheel`; screen units, origin at the
+top-left of the primary display; wheel in notches, positive away from the user) and returns true
+to swallow it. Call it on the UI thread before `run()`. One per process. Windows: `WH_MOUSE_LL`.
+macOS: a session-level `CGEventTap`, which needs the Accessibility permission; without it the
+install throws after asking the system to show its prompt once. Linux: throws (not supported).
 
 Webview is a tiny cross-platform library to make **web-based GUIs for desktop applications**.
 
@@ -148,14 +156,15 @@ brew install cmake ninja clang
   git clone --recurse-submodules --branch sweetview https://github.com/n0t-invented-here/sweetview-webview-bun
   cd sweetview-webview-bun
   ```
+
 - Build the library for your platform.
 
   > Under the hood, it invokes webview's own cmake build system to compile the shared library file.
-  >
 
   ```bash
   bun run build
   ```
+
 - (Optional) Clear build cache and rebuild the library.
 
   ```bash

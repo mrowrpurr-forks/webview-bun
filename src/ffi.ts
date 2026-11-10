@@ -88,3 +88,6 @@ export const lib = dlopen(lib_file.default, {
     returns: FFIType.void,
   },
 });
+
+/** The library file `lib` was opened from, for the fork's own functions (src/mouse-hook.ts), which bind lazily so a library without them still loads. */
+export const libraryPath: string = lib_file.default;
