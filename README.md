@@ -1,69 +1,45 @@
 # sweetview-webview-bun
 
-[bun](https://bun.sh/) bindings for [webview](https://github.com/webview/webview/), forked from
-[webview-bun](https://github.com/tr1ckydev/webview-bun). Same API; the shipped library is built from
-[sweetview-webview](https://github.com/n0t-invented-here/sweetview-webview), which adds to the C API:
-
-- `webview_set_asset` (serve bytes at the webview's own origin) and `webview_set_background_color`. The
-  `Webview` class does not wrap them; call them over `bun:ffi` with the library path from `WEBVIEW_PATH`
-  or the file under `build/`.
-- System-wide mouse and keyboard hooks, with a permission model: see [Input hooks](#input-hooks).
-
-Webview is a tiny cross-platform library to make **web-based GUIs for desktop applications**.
-
-![](banner.png)
-
-## Installation
-
-<details>
-  <summary>Click here for instructions on 🐧 Linux</summary>
-  The compiled linux library in this package requires GTK 4 and WebkitGTK 6.
-
-> To use a different version, see Development section below.
-
-- Debian-based systems: `sudo apt install libgtk-4-1 libwebkitgtk-6.0-4`
-- Arch-based systems: `sudo pacman -S gtk4 webkitgtk-6.0`
-- Fedora-based systems: `sudo dnf install gtk4 webkitgtk6.0`
-
-</details>
-
-<details>
-  <summary>Click here for instructions on 🪟 Windows</summary>
-  The compiled windows library in this package does not bundle any webview version with itself but rather uses the system installed one.
-
-> To bundle a specific version, see Development section below.
-
-The <a href="https://developer.microsoft.com/en-us/microsoft-edge/webview2/">Microsoft Edge WebView2</a> runtime is required to be installed on the system for any version of Windows before Windows 11.
-To manually update or install the latest version, follow the steps <a href="https://github.com/MicrosoftEdge/WebView2Feedback/issues/3371#issuecomment-1500917825">here</a>.
-
-</details>
+[bun](https://bun.sh/) bindings for [sweetview-webview](https://github.com/n0t-invented-here/sweetview-webview),
+a fork of [webview](https://github.com/webview/webview) (web-based desktop GUIs on the OS's own web engine)
+that adds `webview_set_asset`, `webview_set_background_color` and system-wide mouse and keyboard hooks to
+the C API. The package ships the library built from that fork for Windows, macOS (universal) and Linux
+(x64, arm64), and wraps it in TypeScript.
 
 ```bash
 bun i @n1h/sweetview-webview-bun
 ```
 
-## Example
+What the OS needs:
+
+- 🐧 Linux: GTK 4 and WebKitGTK 6. Debian: `sudo apt install libgtk-4-1 libwebkitgtk-6.0-4`; Arch:
+  `sudo pacman -S gtk4 webkitgtk-6.0`; Fedora: `sudo dnf install gtk4 webkitgtk6.0`.
+- 🪟 Windows: the [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) runtime,
+  which Windows 11 has; the library uses the installed one.
+- 🍎 macOS: nothing. The input hooks need a permission; see [Input hooks](#input-hooks).
+
+## Usage
 
 ```typescript
 import { Webview } from "@n1h/sweetview-webview-bun";
 
-const html = `
-<html>
-    <body>
-        <h1>Hello from bun v${Bun.version} !</h1>
-    </body>
-</html>
-`;
-
 const webview = new Webview();
-
-webview.setHTML(html);
+webview.setHTML(`<h1>Hello from bun v${Bun.version}</h1>`);
 webview.run();
 ```
 
-For more examples, browse the `examples` folder of this repository.
+`examples/` has more: `basic.ts`, `bind.ts` (calling into bun from the page), `multiple.ts`,
+`input-hooks.ts`, a `todoapp/` and a `webserver/` (a web server on the main thread with the window on a
+worker). The `Webview` class is documented in `src/webview.ts`.
+
+`webview_set_asset` (serve bytes at the webview's own origin) and `webview_set_background_color` are not
+wrapped by the class; call them over `bun:ffi` against the library at `libraryPath` from `src/ffi.ts`
+(or your own, through `WEBVIEW_PATH`).
 
 ## Input hooks
+
+Two system-wide hooks, from `webview_mouse_hook_install` / `webview_mouse_hook_remove` and
+`webview_keyboard_hook_install` / `webview_keyboard_hook_remove`:
 
 Two system-wide hooks, wrapped from `webview_mouse_hook_install` / `webview_mouse_hook_remove` and
 `webview_keyboard_hook_install` / `webview_keyboard_hook_remove`:
@@ -101,137 +77,46 @@ The permission model says what the hooks need from the system and gives the app 
   the system by itself, once per process. Set it to `false` to ask only through `request`, in the app's own
   time.
 
-`bun run examples/input-hooks.ts` shows the hooks behind that model. How they are tested is under
-[Testing the input hooks](#testing-the-input-hooks).
+`bun run examples/input-hooks.ts` shows the hooks behind that model.
 
-## Single-file executable
-
-You can compile a single self-sufficient executable file for your webview app.
-
-For example, let's create a single executable for the above To-Do app. Clone this repository and run,
+## Single-file executables
 
 ```bash
 bun build --compile --minify --sourcemap ./examples/todoapp/app.ts --outfile todoapp
 ```
 
-> [!TIP]
-> By default, a terminal window will also open in the back when double-click opening the executable in Windows and macOS.
->
-> #### 🪟 To hide it in Windows:
->
-> Download and run [hidecmd.bat](https://github.com/tr1ckydev/webview-bun/blob/main/scripts/hidecmd.bat) from this repository, provide the exe path when prompted.
->
-> #### 🍎 To hide it in macOS:
->
-> Add the extension `.app` in the end of the above bun build command.
+The library is embedded, so the executable stands alone. Cross-compiling with `--target` (say
+`bun-windows-x64`) works the same way; see bun's
+[list of targets](https://github.com/oven-sh/bun/blob/main/docs/bundler/executables.md#supported-targets).
 
-### Cross-platform compilation
-
-Bun now supports cross-compilation of single executable binaries. To cross compile your webview app for a different platform run,
-
-```bash
-bun build --compile --target=bun-windows-x64 --minify --sourcemap ./examples/todoapp/app.ts --outfile todoapp
-```
-
-See [full list](https://github.com/oven-sh/bun/blob/main/docs/bundler/executables.md#supported-targets) of supported targets.
-
-### Bun.serve with webview
-
-If you run a web server it will block the main thread, but using workers you can run the webview window on another thread. Clone this repository then,
-
-```bash
-cd examples/webserver/
-bun build --compile --minify --sourcemap ./index.ts ./worker.ts --outfile webserver
-```
-
-### Extras
-
-🪟 On windows, to add an icon to your exe file, checkout [rcedit](https://github.com/electron/rcedit).
-
-🍎 On macOS, to codesign your executable checkout the [bun docs](https://bun.sh/docs/bundler/executables#code-signing-on-macos).
-
-## Documentation
-
-Refer to the comments in the source code for full documentation.
+- 🪟 A console window opens behind a double-clicked executable; see
+  [hidecmd.bat](https://github.com/tr1ckydev/webview-bun/blob/main/scripts/hidecmd.bat) to hide it, and
+  [rcedit](https://github.com/electron/rcedit) for an icon.
+- 🍎 Give the output file the `.app` extension to avoid the console; to sign it see the
+  [bun docs](https://bun.sh/docs/bundler/executables#code-signing-on-macos). The input hooks' permission is
+  granted to the app that asks, so a hooks app wants a bundle of its own with a stable identity.
 
 ## Development
 
-Please use `bun pretty` to automatically format all files.
+`bun pretty` formats everything. `WEBVIEW_PATH` points the bindings at a library of your own.
 
 ### Building the shipped library
 
-`just build` ([just](https://github.com/casey/just), pwsh) fetches the `webview/` submodule if it is empty, builds the library for this OS and copies it to `build/` (`libwebview.dll`, `libwebview.dylib`, or `libwebview-<arch>.so`), where `src/ffi.ts` imports it from and the npm package ships it. On Windows it enters the Visual Studio dev shell from pwsh and runs CMake with ninja itself, no `cmd` or `.bat`; elsewhere it runs `bun scripts/build.ts`. Commit the result in `build/` so the published package carries it. `just pack` shows what `npm publish` would upload; `just publish` publishes.
+`just build` ([just](https://github.com/casey/just), pwsh) puts the `webview/` submodule at the commit
+this branch records, builds the library for this OS and copies it to `build/` (`libwebview.dll`,
+`libwebview.dylib`, or `libwebview-<arch>.so`), where `src/ffi.ts` imports it from and the npm package
+ships it. Build on each OS itself and commit the file under `build/`. `just clean` removes the build
+folder; `just pack` shows what `npm publish` would upload; `just publish` publishes.
 
-### Prerequisites
+Prerequisites: CMake and ninja everywhere; 🪟 Visual Studio 2022 Build Tools with the "Desktop
+development with C++" workload (the recipe enters its dev shell from pwsh); 🐧 clang and the GTK 4 /
+WebKitGTK 6 dev packages (`libgtk-4-dev libwebkitgtk-6.0-dev` on Debian, `gtk4-devel webkitgtk6.0-devel`
+on Fedora); 🍎 the Xcode command line tools (`brew install cmake ninja`).
 
-#### 🪟 On **Windows,** you need C++ Build Tools:
-
-- Go to https://visualstudio.microsoft.com/downloads.
-- Scroll down > _All Downloads_ > _Tools for Visual Studio_.
-- Download _Build Tools for Visual Studio 2022_ and run.
-- Select _Desktop development with C++_ and install.
-
-#### 🐧 On linux, you need following deps:
-
-- Debian-based: `sudo apt install libgtk-4-dev libwebkitgtk-6.0-dev cmake ninja-build clang`
-- Fedora-based: `sudo dnf install gtk4-devel webkitgtk6.0-devel cmake ninja-build clang`
-- Arch-based: `sudo pacman -S cmake ninja clang`
-
-#### 🍎 On macOS, you need following deps:
-
-```bash
-brew install cmake ninja clang
-```
-
-### Building
-
-- Clone the repository along with the [webview](https://github.com/webview/webview) submodule.
-
-  ```bash
-  git clone --recurse-submodules --branch sweetview https://github.com/n0t-invented-here/sweetview-webview-bun
-  cd sweetview-webview-bun
-  ```
-
-- Build the library for your platform.
-
-  > Under the hood, it invokes webview's own cmake build system to compile the shared library file.
-
-  ```bash
-  bun run build
-  ```
-
-- (Optional) Clear build cache and rebuild the library.
-
-  ```bash
-  bun clean
-  bun run build
-  ```
-
-The compiled library file can be found inside the `build` folder.
-
-#### Building for arm64 from x86_64
-
-To create an arm64 shared library from a x86_64 host, checkout [setupARM64.sh](https://github.com/tr1ckydev/webview-bun/blob/main/setupARM64.sh). DO NOT execute the file (the .sh extension has been kept for syntax highlighting), rather read the comments and copy and paste the commands line by line.
-
-### Customization
-
-- 🐧 For linux, if you want to use a different WebkitGTK version, change the cmake `WEBVIEW_WEBKITGTK_API` option in _build.ts_ to one of the [available values](https://github.com/webview/webview?tab=readme-ov-file#linux-specific-options). Be sure to first install the corresponding version libraries.
-- 🪟 For windows, if you want to bundle a specific webview version instead of using the system installed one, set the cmake `WEBVIEW_MSWEBVIEW2_VERSION` option to one of the [NuGet version strings](https://www.nuget.org/packages/Microsoft.Web.WebView2/#versions-body-tab).
-
-Check out the [webview build docs](https://github.com/webview/webview?tab=readme-ov-file#customization) for more options.
-
-### Running
-
-> [!TIP]
-> To use your own webview library, set the `WEBVIEW_PATH` environment variable with the path to your webview shared library file.
-
-Run the following example to see it in action.
-
-```bash
-bun run examples/basic.ts
-```
-
-For more examples, browse the `examples` folder of this repository.
+To build against another WebKitGTK API, change `WEBVIEW_WEBKITGTK_API` in `scripts/build.ts`; to bundle a
+specific WebView2 instead of the installed one, set `WEBVIEW_MSWEBVIEW2_VERSION` to a
+[NuGet version](https://www.nuget.org/packages/Microsoft.Web.WebView2/#versions-body-tab). More in the
+[webview build docs](https://github.com/webview/webview?tab=readme-ov-file#customization).
 
 ### Testing the input hooks
 
@@ -254,10 +139,7 @@ and not on the terminal: the probe builds `dist/sweetview-hook-probe-test.app` b
 first run of any of these apps asks; allow it and run again. Rebuilding an app (its sources newer than
 the bundle, or `--rebuild`) changes its ad-hoc signature, so it asks again.
 
-## Credits
+## Credits and license
 
-This repository is a port of [webview_deno](https://github.com/webview/webview_deno) with various changes to work with the bun runtime.
-
-## License
-
-This repository uses MIT license. See [LICENSE](https://github.com/tr1ckydev/webview-bun/blob/main/LICENSE) for full license text.
+Forked from [webview-bun](https://github.com/tr1ckydev/webview-bun) by tr1ckydev, itself a port of
+[webview_deno](https://github.com/webview/webview_deno). MIT; see [LICENSE](LICENSE).
