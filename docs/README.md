@@ -8,4 +8,4 @@
 
 - Install, build and package instructions: the [README](../README.md).
 - The C library these bindings wrap: [sweetview-webview](https://github.com/n0t-invented-here/sweetview-webview);
-  its additions are documented in its [`sweetview/`](https://github.com/n0t-invented-here/sweetview-webview/tree/input-hooks/sweetview) folder.
+  its additions are documented in its [`sweetview/`](https://github.com/n0t-invented-here/sweetview-webview/tree/sweetview/sweetview) folder.

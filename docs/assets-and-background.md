@@ -69,5 +69,5 @@ webview.setBackgroundColor(0, 0, 0, 0); // transparent
 
 The C side of both is documented in the library fork:
 
-- [assets](https://github.com/n0t-invented-here/sweetview-webview/blob/input-hooks/sweetview/assets.md)
-- [background color](https://github.com/n0t-invented-here/sweetview-webview/blob/input-hooks/sweetview/background-color.md)
+- [assets](https://github.com/n0t-invented-here/sweetview-webview/blob/sweetview/sweetview/assets.md)
+- [background color](https://github.com/n0t-invented-here/sweetview-webview/blob/sweetview/sweetview/background-color.md)
