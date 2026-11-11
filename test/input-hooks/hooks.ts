@@ -5,16 +5,16 @@
 // what the hooks saw: the modifiers on mouse messages, DOM codes, down / repeat
 // / up, the modifiers after a key event, disposing the keyboard hook from
 // inside its own handler, and that the mouse hook outlives it. Nothing else is
-// swallowed. Linux has no hooks, so the probe does not run there.
+// swallowed. Linux has no hooks, so the test does not run there.
 //
 // Flaky by construction: a low-level hook is served only while this thread
 // pumps, the pump here is a JS timer, and the OS skips a hook it cannot serve
 // in time; an app that pumps natively (webview_run) never misses. Inputs are
 // spaced apart so each hook call stands on its own; run it again on a miss.
 //
-//   bun scripts/hook-probe.ts
+//   bun test/input-hooks/hooks.ts
 //
-// On macOS the probe runs as an app of its own, dist/sweetview-hook-probe-test.app (scripts/test-app.ts
+// On macOS the test runs as an app of its own, dist/sweetview-hooks-test.app (test/input-hooks/app-bundle.ts
 // builds it), so that the tap's grant, Device Control and Data Access, lands on that app and not on
 // the terminal: the first run refuses and asks, allow it, the next run delivers. The app writes its
 // output to the --log file the terminal gives it and the terminal prints it.
@@ -27,14 +27,14 @@ import {
   installMouseHook,
   MouseEvent,
   type Modifiers,
-} from "../src/index";
+} from "../../src/index";
 
 const logFile = process.argv[process.argv.indexOf("--log") + 1];
 if (process.platform === "darwin" && !process.argv.includes("--log")) {
-  const { buildTestApp, dist, runTestApp } = await import("./test-app");
+  const { buildTestApp, dist, runTestApp } = await import("./app-bundle");
   const app = await buildTestApp(
-    "hook-probe-test",
-    "scripts/hook-probe.ts",
+    "hooks-test",
+    "test/input-hooks/hooks.ts",
     process.argv.includes("--rebuild"),
   );
   const log = join(dist, `${app.name}.log`);
@@ -42,7 +42,7 @@ if (process.platform === "darwin" && !process.argv.includes("--log")) {
   console.log(`running ${app.app}`);
   await runTestApp(app, ["--log", log]);
   if (!existsSync(log)) {
-    console.log("FAIL: the probe app wrote no log (did it launch?)");
+    console.log("FAIL: the test app wrote no log (did it launch?)");
     process.exit(1);
   }
   const text = readFileSync(log, "utf8");
@@ -56,7 +56,7 @@ if (logFile) {
   console.error = toLog;
 }
 
-// What the probe synthesizes, in platform terms: a modifier or key by its platform code, a mouse move, a wheel notch,
+// What the test synthesizes, in platform terms: a modifier or key by its platform code, a mouse move, a wheel notch,
 // and a pump of the thread's queue, so the steps below read the same on both platforms.
 type Input = {
   key(
@@ -199,7 +199,7 @@ function macInput(): Input {
     z: 0x06,
     delete: 0x75,
   };
-  // The flags a posted event carries are whatever it is given, so the probe keeps the held modifiers itself.
+  // The flags a posted event carries are whatever it is given, so the test keeps the held modifiers itself.
   let held = 0n;
   const post = (event: ReturnType<typeof cg.symbols.CGEventCreate>) => {
     if (!event) throw new Error("CGEventCreate failed");
@@ -255,7 +255,7 @@ const input =
       ? macInput()
       : undefined;
 if (!input) {
-  console.error("hook-probe: Windows and macOS only (Linux has no hooks)");
+  console.error("hooks test: Windows and macOS only (Linux has no hooks)");
   process.exit(2);
 }
 
@@ -305,7 +305,7 @@ try {
     `FAIL: install refused: ${err instanceof Error ? err.message : String(err)}`,
   );
   console.log(
-    "(no grant yet: the system asked once; allow it and run the probe again)",
+    "(no grant yet: the system asked once; allow it and run the test again)",
   );
   process.exit(1);
 }

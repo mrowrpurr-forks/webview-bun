@@ -1,6 +1,6 @@
 // A script compiled into an app of its own, so that macOS grants (which belong to the app that
-// asks) land on it and the permission dialog carries its name. Used by scripts/permission-probe.ts
-// scripts/hook-probe.ts and scripts/example-app.ts. On Windows and Linux the "app" is a plain executable in dist/.
+// asks) land on it and the permission dialog carries its name. Used by the input-hooks tests and
+// scripts/example-app.ts. On Windows and Linux the "app" is a plain executable in dist/.
 //
 // A bundle is built once and reused, so its identity, and with it its grants, survive between
 // runs; it is rebuilt when its sources (the script, src/, build/) are newer than it, or on
@@ -22,7 +22,7 @@ import { $ } from "bun";
 
 export const mac = process.platform === "darwin";
 
-export const root = new URL("..", import.meta.url).pathname.replace(
+export const root = new URL("../..", import.meta.url).pathname.replace(
   /^\/([A-Za-z]:)/,
   "$1",
 );

@@ -300,23 +300,35 @@ For more examples, browse the `examples` folder of this repository.
 
 ### Testing the input hooks
 
-| Command                                                                       | What it checks                                                                  |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| [`bun scripts/hook-probe.ts`](scripts/hook-probe.ts)                          | Both hooks against the shipped library, with synthesized input (Windows, macOS) |
-| [`bun scripts/permission-probe.ts <app> before`](scripts/permission-probe.ts) | With the app's grant wiped: every refusal, and the one dialog                   |
-| [`bun scripts/permission-probe.ts <app> after`](scripts/permission-probe.ts)  | With it allowed: every success, no dialog                                       |
-| [`bun scripts/example-app.ts input-hooks`](scripts/example-app.ts)            | The example window, as an app                                                   |
+```bash
+bun run test
+```
+
+[`test/input-hooks/run.ts`](test/input-hooks/run.ts) runs the suite in order and prints a summary:
+
+| Step                                                               | What it checks                                                                  |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| [`hooks.ts`](test/input-hooks/hooks.ts)                            | Both hooks against the shipped library, with synthesized input (Windows, macOS) |
+| [`permissions.ts`](test/input-hooks/permissions.ts) `<app> before` | With the app's grant wiped: every refusal, and the one dialog                   |
+| [`permissions.ts`](test/input-hooks/permissions.ts) `<app> after`  | With it allowed: every success, no dialog                                       |
 
 `<app>` is `mouse-hook`, `keyboard-hook` or `input-monitoring`: one test app per grant, because
 macOS grants belong to the app that asks and each app should ask for one row only.
 
+- Each step can be run on its own: `bun test/input-hooks/hooks.ts`,
+  `bun test/input-hooks/permissions.ts mouse-hook before`.
 - The `input-monitoring` app asks for Input Monitoring alone; the hooks must still refuse after it is
   granted.
-- On macOS the probe and the example run as apps too, all under `dist/`, ad-hoc signed.
-- The first run of any app asks; allow it in the dialog and run again.
-- A rebuild (sources newer than the bundle, or `--rebuild`) changes the signature, and it asks again.
-- On Windows and Linux the permission tests have one phase, not-applicable, and run as plain
-  executables.
+- On macOS every step runs as an app of its own under `dist/`, ad-hoc signed
+  ([`app-bundle.ts`](test/input-hooks/app-bundle.ts) builds them). The suite stops at each permission
+  dialog and waits for Enter once it is allowed.
+- A rebuild (sources newer than the bundle, or `--rebuild`) changes an app's signature, and it asks
+  again.
+- On Windows and Linux there is nothing to allow; the permission steps have one phase,
+  not-applicable, and run as plain executables.
+
+[`scripts/example-app.ts`](scripts/example-app.ts) `input-hooks` runs the example window as an app of
+its own the same way.
 
 ## Credits
 

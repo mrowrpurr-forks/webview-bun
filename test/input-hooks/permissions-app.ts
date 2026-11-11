@@ -1,4 +1,4 @@
-// What runs inside each permission test app (scripts/permission-probe.ts builds and launches them):
+// What runs inside each permission test app (test/input-hooks/permissions.ts builds and launches them):
 // exercises the permission model and the two toggles for one scenario against the grant this app
 // holds, compares every answer with what the phase demands, and writes the report the runner prints.
 // Started by the runner with --scenario <s> --phase <before|after|not-applicable> --report <file>;
@@ -19,7 +19,7 @@ import {
   type KeyboardHook,
   type MouseHook,
   type PermissionStatus,
-} from "../src/index";
+} from "../../src/index";
 
 type Scenario = "mouse-hook" | "keyboard-hook" | "input-monitoring";
 type Phase = "before" | "after" | "not-applicable";

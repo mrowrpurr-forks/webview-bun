@@ -1,5 +1,5 @@
 // Runs an example as an app of its own on macOS, so that the grant it asks for lands on the example
-// and not on the terminal (grants belong to the app that asks; see scripts/test-app.ts):
+// and not on the terminal (grants belong to the app that asks; see test/input-hooks/app-bundle.ts):
 //
 //   bun scripts/example-app.ts input-hooks        # dist/sweetview-input-hooks-example.app
 //
@@ -8,7 +8,7 @@
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { buildTestApp, root, runTestApp } from "./test-app";
+import { buildTestApp, root, runTestApp } from "../test/input-hooks/app-bundle";
 
 const args = process.argv.slice(2);
 const example = args.find((a) => !a.startsWith("--"));

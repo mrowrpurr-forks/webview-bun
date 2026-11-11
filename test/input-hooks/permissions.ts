@@ -2,17 +2,17 @@
 // asks for exactly one row of System Settings > Privacy & Security and is named for what it asks;
 // the dialog says which app wants which row, and each app ends up listed under one row only.
 //
-//   bun scripts/permission-probe.ts mouse-hook before        # grants wiped: install refuses and asks for Device Control and Data Access
-//   bun scripts/permission-probe.ts mouse-hook after         # that row allowed: install works, nothing asked
-//   bun scripts/permission-probe.ts keyboard-hook before      # the same pair for the keyboard hook
-//   bun scripts/permission-probe.ts keyboard-hook after
-//   bun scripts/permission-probe.ts input-monitoring before   # asks for Input Monitoring only
-//   bun scripts/permission-probe.ts input-monitoring after    # allowed: the hooks still refuse (they need the other row)
+//   bun test/input-hooks/permissions.ts mouse-hook before        # grants wiped: install refuses and asks for Device Control and Data Access
+//   bun test/input-hooks/permissions.ts mouse-hook after         # that row allowed: install works, nothing asked
+//   bun test/input-hooks/permissions.ts keyboard-hook before      # the same pair for the keyboard hook
+//   bun test/input-hooks/permissions.ts keyboard-hook after
+//   bun test/input-hooks/permissions.ts input-monitoring before   # asks for Input Monitoring only
+//   bun test/input-hooks/permissions.ts input-monitoring after    # allowed: the hooks still refuse (they need the other row)
 //
 // `before` resets the app's grants first (tccutil), launches it, and expects every refusal; allow the
 // row in the dialog it raises (or in System Settings), then `after` expects every success. The runner
-// compiles scripts/permission-probe-app.ts into dist/sweetview-<scenario>-test.app (see
-// scripts/test-app.ts for the bundle, its identity and when it is rebuilt), launches it and waits,
+// compiles test/input-hooks/permissions-app.ts into dist/sweetview-<scenario>-test.app (see
+// test/input-hooks/app-bundle.ts for the bundle, its identity and when it is rebuilt), launches it and waits,
 // then prints each check with PASS or FAIL and which row the run should have asked for.
 //
 // On Windows and Linux there are no such permissions: the one phase is "not-applicable", the
@@ -20,7 +20,7 @@
 
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { buildTestApp, dist, mac, resetGrants, runTestApp } from "./test-app";
+import { buildTestApp, dist, mac, resetGrants, runTestApp } from "./app-bundle";
 
 const scenarios = ["mouse-hook", "keyboard-hook", "input-monitoring"] as const;
 const phases = ["before", "after"] as const;
@@ -31,7 +31,7 @@ const args = process.argv.slice(2);
 const rebuild = args.includes("--rebuild");
 const [scenario, phaseArg] = args.filter((a) => !a.startsWith("--"));
 
-const usage = `usage: bun scripts/permission-probe.ts <${scenarios.join(" | ")}> ${mac ? `<${phases.join(" | ")}> ` : ""}[--rebuild]`;
+const usage = `usage: bun test/input-hooks/permissions.ts <${scenarios.join(" | ")}> ${mac ? `<${phases.join(" | ")}> ` : ""}[--rebuild]`;
 if (!scenarios.includes(scenario as Scenario)) {
   console.error(usage);
   process.exit(2);
@@ -44,7 +44,7 @@ const phase = mac ? (phaseArg as Phase) : "not-applicable";
 
 const app = await buildTestApp(
   `${scenario}-test`,
-  "scripts/permission-probe-app.ts",
+  "test/input-hooks/permissions-app.ts",
   rebuild,
 );
 if (phase === "before") await resetGrants(app);
