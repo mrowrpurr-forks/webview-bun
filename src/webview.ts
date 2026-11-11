@@ -1,5 +1,28 @@
-import { CString, FFIType, JSCallback, type Pointer } from "bun:ffi";
-import { encodeCString, instances, lib } from "./ffi";
+import {
+  CString,
+  dlopen,
+  FFIType,
+  JSCallback,
+  ptr,
+  type Pointer,
+} from "bun:ffi";
+import { encodeCString, instances, lib, libraryPath } from "./ffi";
+
+// The sweetview fork's additions, bound on first use so that a library without them (an older
+// build) still loads for everything else.
+let forkLib: ReturnType<typeof openForkLib> | undefined;
+function openForkLib() {
+  return dlopen(libraryPath, {
+    webview_set_background_color: {
+      args: [FFIType.ptr, FFIType.i32, FFIType.i32, FFIType.i32, FFIType.i32],
+      returns: FFIType.i32,
+    },
+    webview_set_asset: {
+      args: [FFIType.ptr, FFIType.ptr, FFIType.ptr, FFIType.ptr, FFIType.u64],
+      returns: FFIType.i32,
+    },
+  });
+}
 
 /** Window size */
 export interface Size {
@@ -179,6 +202,66 @@ export class Webview {
    */
   setHTML(html: string) {
     lib.symbols.webview_set_html(this.#handle, encodeCString(html));
+  }
+
+  /**
+   * Serves bytes at a path of the webview's own origin, so the page can be
+   * loaded with {@link Webview.navigate} instead of {@link Webview.setHTML}
+   * (which Windows caps at 2 MB) and can fetch scripts, styles, images and
+   * models by relative URL. Nothing reaches the network. The bytes are copied;
+   * calling again with the same path replaces them.
+   *
+   * The origin is `http://webview.localhost` on Windows and
+   * `webview://localhost` on macOS; {@link Webview.assetOrigin} is the one for
+   * this platform. On Linux the asset is stored and not served.
+   *
+   * @param path URL path without the leading slash, for example `index.html`
+   * or `js/main.js`. A request's query string and fragment are ignored when
+   * matching. Must not need percent-encoding.
+   * @param mime The `Content-Type` header, for example
+   * `text/html; charset=utf-8`.
+   * @param data The bytes; a string is encoded as UTF-8.
+   */
+  setAsset(path: string, mime: string, data: Uint8Array | string) {
+    const bytes =
+      typeof data === "string" ? new TextEncoder().encode(data) : data;
+    (forkLib ??= openForkLib()).symbols.webview_set_asset(
+      this.#handle,
+      encodeCString(path),
+      encodeCString(mime),
+      ptr(bytes),
+      BigInt(bytes.byteLength),
+    );
+  }
+
+  /**
+   * The origin {@link Webview.setAsset} serves at on this platform; navigate to
+   * `${webview.assetOrigin}/index.html`.
+   */
+  get assetOrigin(): string {
+    return process.platform === "win32"
+      ? "http://webview.localhost"
+      : "webview://localhost";
+  }
+
+  /**
+   * Sets the color the browser paints behind the page, each channel 0 to 255.
+   * With `a` 0 and a page whose own background is transparent, the native
+   * window shows through.
+   *
+   * Windows: `ICoreWebView2Controller2::DefaultBackgroundColor`; for true
+   * transparency the host window also needs DWM composition that honors alpha.
+   * macOS: `drawsBackground` off on the `WKWebView`, the window non-opaque with
+   * this color behind it. Linux: accepted; does nothing.
+   */
+  setBackgroundColor(r: number, g: number, b: number, a: number) {
+    (forkLib ??= openForkLib()).symbols.webview_set_background_color(
+      this.#handle,
+      r,
+      g,
+      b,
+      a,
+    );
   }
 
   /**
