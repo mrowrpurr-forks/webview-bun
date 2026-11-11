@@ -5,9 +5,10 @@ cross-platform library to make **web-based GUIs for desktop applications**.
 
 ![](banner.png)
 
-Forked from [webview-bun](https://github.com/tr1ckydev/webview-bun), same API. The library this
-package ships is built from [sweetview-webview](https://github.com/n0t-invented-here/sweetview-webview),
-a fork of webview that adds:
+Forked from [webview-bun](https://github.com/tr1ckydev/webview-bun), same API.
+
+The library this package ships is built from
+[sweetview-webview](https://github.com/n0t-invented-here/sweetview-webview), a fork of webview that adds:
 
 - `webview_set_asset` (serve bytes at the webview's own origin) and `webview_set_background_color`,
   called over `bun:ffi` with the library path from `src/ffi.ts` (the `Webview` class does not wrap them).
@@ -119,9 +120,10 @@ Return `true` to swallow the key: no window gets it, not even the focused one.
 
 ### Modifiers
 
-Every message carries `modifiers: { shift, ctrl, alt, meta }`, read for that event. Alt is Option and
-Meta is Command on macOS; Meta is the Windows key on Windows. On a key message it is the state after
-the event, so Shift's own `Down` has `shift: true`.
+Every message carries `modifiers: { shift, ctrl, alt, meta }`, read for that event.
+
+- Alt is Option and Meta is Command on macOS; Meta is the Windows key on Windows.
+- On a key message it is the state after the event, so Shift's own `Down` has `shift: true`.
 
 ### Rules
 
@@ -135,9 +137,10 @@ the event, so Shift's own `Down` has `shift: true`.
 ### Permissions
 
 On macOS both hooks need **Device Control and Data Access** (System Settings > Privacy & Security),
-because their event tap filters events. Windows and Linux need nothing. The permission model tells
-the app what is needed and whether it is granted, and leaves it to the app when, if ever, the user is
-asked:
+because their event tap filters events. Windows and Linux need nothing.
+
+The permission model tells the app what is needed and whether it is granted, and leaves it to the app
+when, if ever, the user is asked:
 
 ```typescript
 import { Feature, Permission, permissions } from "@n1h/sweetview-webview-bun";
@@ -159,8 +162,9 @@ if (!permissions.ready(Feature.KeyboardHook)) {
 | `permissions.autoRequest`         | Default `true`: an install that fails for a missing permission asks the system by itself, once per process. `false`: the install only throws, and the app asks through `request` |
 
 Without the permission, an install throws: `the process needs the Device Control and Data Access
-permission (System Settings > Privacy & Security)`. `Permission.InputMonitoring` (the **Input
-Monitoring** row) is modeled too; no feature here needs it.
+permission (System Settings > Privacy & Security)`.
+
+`Permission.InputMonitoring` (the **Input Monitoring** row) is modeled too; no feature here needs it.
 
 A grant belongs to the app that asks: a `bun` script gets its terminal's, a compiled `.app` its own.
 `examples/input-hooks.ts` shows all of this in a window.
@@ -304,14 +308,15 @@ For more examples, browse the `examples` folder of this repository.
 | `bun scripts/example-app.ts input-hooks`       | The example window, as an app                                                   |
 
 `<app>` is `mouse-hook`, `keyboard-hook` or `input-monitoring`: one test app per grant, because
-macOS grants belong to the app that asks and each app should ask for one row only. The
-`input-monitoring` app asks for Input Monitoring alone, and the hooks must still refuse after it is
-granted.
+macOS grants belong to the app that asks and each app should ask for one row only.
 
-On macOS the probe and the example run as apps too, all under `dist/`, ad-hoc signed. The first run
-of any of them asks; allow it in the dialog and run again. A rebuild (sources newer than the bundle,
-or `--rebuild`) changes the signature, and it asks again. On Windows and Linux the permission tests
-have one phase, not-applicable, and run as plain executables.
+- The `input-monitoring` app asks for Input Monitoring alone; the hooks must still refuse after it is
+  granted.
+- On macOS the probe and the example run as apps too, all under `dist/`, ad-hoc signed.
+- The first run of any app asks; allow it in the dialog and run again.
+- A rebuild (sources newer than the bundle, or `--rebuild`) changes the signature, and it asks again.
+- On Windows and Linux the permission tests have one phase, not-applicable, and run as plain
+  executables.
 
 ## Credits
 
