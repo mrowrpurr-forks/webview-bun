@@ -1,7 +1,7 @@
 {
   "name": "@n1h/sweetview-webview-bun",
-  "description": "Bun bindings for webview, a tiny library for creating web-based desktop GUIs. A fork of webview-bun whose shipped library adds webview_set_asset, webview_set_background_color and a system-wide mouse hook (webview_mouse_hook_install).",
-  "version": "2.6.1",
+  "description": "Bun bindings for webview, a tiny library for creating web-based desktop GUIs. A fork of webview-bun whose shipped library adds webview_set_asset, webview_set_background_color and system-wide mouse and keyboard hooks (webview_mouse_hook_install, webview_keyboard_hook_install) with modifier keys on every event.",
+  "version": "2.7.0",
   "type": "module",
   "module": "src/index.ts",
   "main": "src/index.ts",

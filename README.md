@@ -3,17 +3,31 @@
 [bun](https://bun.sh/) bindings for [webview](https://github.com/webview/webview/), forked from
 [webview-bun](https://github.com/tr1ckydev/webview-bun). Same API; the shipped library is built from
 [sweetview-webview](https://github.com/n0t-invented-here/sweetview-webview), which adds
-`webview_set_asset` (serve bytes at the webview's own origin), `webview_set_background_color` and
-`webview_mouse_hook_install` / `webview_mouse_hook_remove` (a system-wide mouse hook: see every
-mouse event before any window does and swallow the ones you choose) to the C API. The `Webview`
-class does not wrap the first two; call them over `bun:ffi` with the library path from
-`WEBVIEW_PATH` or the file under `build/`. The mouse hook is wrapped: `installMouseHook(handler)`
-returns `{ dispose() }`; the handler gets `{ event, x, y, wheel }` (`MouseEvent.Move`, `LeftDown`,
-`LeftUp`, `RightDown`, `RightUp`, `MiddleDown`, `MiddleUp`, `Wheel`; screen units, origin at the
-top-left of the primary display; wheel in notches, positive away from the user) and returns true
-to swallow it. Call it on the UI thread before `run()`. One per process. Windows: `WH_MOUSE_LL`.
-macOS: a session-level `CGEventTap`, which needs the Accessibility permission; without it the
-install throws after asking the system to show its prompt once. Linux: throws (not supported).
+`webview_set_asset` (serve bytes at the webview's own origin), `webview_set_background_color`, and two
+system-wide input hooks, `webview_mouse_hook_install` / `webview_mouse_hook_remove` and
+`webview_keyboard_hook_install` / `webview_keyboard_hook_remove`, to the C API. The `Webview` class does
+not wrap the first two; call them over `bun:ffi` with the library path from `WEBVIEW_PATH` or the file
+under `build/`. The hooks are wrapped:
+
+- `installMouseHook(handler)` returns `{ dispose() }`. The handler gets `{ event, x, y, wheel, modifiers }`
+  (`MouseEvent.Move`, `LeftDown`, `LeftUp`, `RightDown`, `RightUp`, `MiddleDown`, `MiddleUp`, `Wheel`;
+  screen units, origin at the top-left of the primary display; wheel in notches, positive away from the
+  user) and returns true to swallow the event so no window gets it. Windows: `WH_MOUSE_LL`.
+- `installKeyboardHook(handler)` returns `{ dispose() }`. The handler gets `{ event, code, raw, modifiers }`
+  (`KeyEvent.Down`, `Up`, `Repeat`; `code` is the DOM `KeyboardEvent.code` name of the physical key,
+  `"KeyZ"`, `"Delete"`, `"ArrowLeft"`..., so nothing switches on platform key numbers; `raw` is that number,
+  the virtual-key code on Windows and the virtual keycode on macOS) and returns true to swallow the key so
+  no window gets it, not even the focused one. Windows: `WH_KEYBOARD_LL`.
+- `modifiers` on every message is `{ shift, ctrl, alt, meta }` (Alt is Option and Meta is Command on macOS;
+  Meta is the Windows key on Windows), read inside the hook for that event. On a key message it is the state
+  after the event, so Shift's own `Down` has `shift: true`.
+
+Both hooks: one of each per process, call on the UI thread before `run()`, keep the handler quick, and
+install or dispose them in any order (each is independent of the other). macOS: both listen on one
+session-level `CGEventTap`, which needs the Accessibility permission; without it the install throws after
+asking the system to show its prompt once. Linux: the install throws (no hook on that platform).
+`bun run examples/input-hooks.ts` shows both; `bun scripts/hook-probe.ts` (Windows) checks them against the
+shipped library with synthesised input.
 
 Webview is a tiny cross-platform library to make **web-based GUIs for desktop applications**.
 

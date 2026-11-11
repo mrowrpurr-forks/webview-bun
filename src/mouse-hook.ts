@@ -6,6 +6,7 @@
 
 import { FFIType, JSCallback, dlopen } from "bun:ffi";
 import { libraryPath } from "./ffi";
+import { hookInstallError, modifiersFrom, type Modifiers } from "./input-hooks";
 
 // Bound on first use, not with the rest of the library: a shipped library built without the fork's
 // functions (upstream's stock arm64 Linux build) must still load for everything else.
@@ -36,13 +37,16 @@ export const enum MouseEvent {
 
 /**
  * One mouse event: the cursor in screen units (physical pixels on Windows, points on macOS, origin at the top-left of the
- * primary display) and, for `Wheel`, the notches turned, positive away from the user (a trackpad gives fractions).
+ * primary display), for `Wheel` the notches turned, positive away from the user (a trackpad gives fractions), and the
+ * modifier keys held when the event was generated (read inside the hook: the asynchronous key state on Windows, the
+ * event's own flags on macOS).
  */
 export type MouseMessage = {
   event: MouseEvent;
   x: number;
   y: number;
   wheel: number;
+  modifiers: Modifiers;
 };
 
 /** Return true to swallow the event (no window gets it), false to let it go on. Runs on the UI thread inside the run loop; be quick. */
@@ -50,35 +54,42 @@ export type MouseHandler = (m: MouseMessage) => boolean;
 
 export type MouseHook = { dispose(): void };
 
-/** The library's error codes that `installMouseHook` turns into errors; the message says which. */
-const WEBVIEW_ERROR_MISSING_DEPENDENCY = -5;
-const WEBVIEW_ERROR_DUPLICATE = 1;
-
 /**
  * Installs the process's mouse hook. Throws when one is already installed, when the platform has none (Linux), or on
  * macOS when the process lacks the Accessibility permission (the system is asked to show its prompt once; the next
- * launch after the user grants it succeeds).
+ * launch after the user grants it succeeds). Independent of `installKeyboardHook`: install both in either order, dispose
+ * either, and the other keeps delivering.
  */
 export function installMouseHook(handler: MouseHandler): MouseHook {
   const lib = (hookLib ??= openHookLib()); // throws when the library has no webview_mouse_hook_install
   const callback = new JSCallback(
-    (event: number, x: number, y: number, wheel: number, _arg: unknown) =>
-      handler({ event, x, y, wheel }) ? 1 : 0,
+    (
+      event: number,
+      x: number,
+      y: number,
+      wheel: number,
+      modifiers: number,
+      _arg: unknown,
+    ) =>
+      handler({ event, x, y, wheel, modifiers: modifiersFrom(modifiers) })
+        ? 1
+        : 0,
     {
-      args: [FFIType.i32, FFIType.f64, FFIType.f64, FFIType.f64, FFIType.ptr],
+      args: [
+        FFIType.i32,
+        FFIType.f64,
+        FFIType.f64,
+        FFIType.f64,
+        FFIType.u32,
+        FFIType.ptr,
+      ],
       returns: FFIType.i32,
     },
   );
   const code = lib.symbols.webview_mouse_hook_install(callback.ptr, null);
   if (code !== 0) {
     callback.close();
-    const why =
-      code === WEBVIEW_ERROR_DUPLICATE
-        ? "a mouse hook is already installed"
-        : code === WEBVIEW_ERROR_MISSING_DEPENDENCY
-          ? "the process needs the Accessibility permission (System Settings > Privacy & Security > Accessibility)"
-          : `error ${code}`;
-    throw new Error(`webview_mouse_hook_install failed: ${why}`);
+    throw hookInstallError("mouse", code);
   }
   let disposed = false;
   return {
