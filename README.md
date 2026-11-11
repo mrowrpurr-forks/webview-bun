@@ -2,56 +2,12 @@
 
 [bun](https://bun.sh/) bindings for [webview](https://github.com/webview/webview/), forked from
 [webview-bun](https://github.com/tr1ckydev/webview-bun). Same API; the shipped library is built from
-[sweetview-webview](https://github.com/n0t-invented-here/sweetview-webview), which adds
-`webview_set_asset` (serve bytes at the webview's own origin), `webview_set_background_color`, and two
-system-wide input hooks, `webview_mouse_hook_install` / `webview_mouse_hook_remove` and
-`webview_keyboard_hook_install` / `webview_keyboard_hook_remove`, to the C API. The `Webview` class does
-not wrap the first two; call them over `bun:ffi` with the library path from `WEBVIEW_PATH` or the file
-under `build/`. The hooks are wrapped:
+[sweetview-webview](https://github.com/n0t-invented-here/sweetview-webview), which adds to the C API:
 
-- `installMouseHook(handler)` returns `{ dispose() }`. The handler gets `{ event, x, y, wheel, modifiers }`
-  (`MouseEvent.Move`, `LeftDown`, `LeftUp`, `RightDown`, `RightUp`, `MiddleDown`, `MiddleUp`, `Wheel`;
-  screen units, origin at the top-left of the primary display; wheel in notches, positive away from the
-  user) and returns true to swallow the event so no window gets it. Windows: `WH_MOUSE_LL`.
-- `installKeyboardHook(handler)` returns `{ dispose() }`. The handler gets `{ event, code, raw, modifiers }`
-  (`KeyEvent.Down`, `Up`, `Repeat`; `code` is the DOM `KeyboardEvent.code` name of the physical key,
-  `"KeyZ"`, `"Delete"`, `"ArrowLeft"`..., so nothing switches on platform key numbers; `raw` is that number,
-  the virtual-key code on Windows and the virtual keycode on macOS) and returns true to swallow the key so
-  no window gets it, not even the focused one. Windows: `WH_KEYBOARD_LL`.
-- `modifiers` on every message is `{ shift, ctrl, alt, meta }` (Alt is Option and Meta is Command on macOS;
-  Meta is the Windows key on Windows), read inside the hook for that event. On a key message it is the state
-  after the event, so Shift's own `Down` has `shift: true`.
-
-Both hooks: one of each per process, call on the UI thread before `run()`, keep the handler quick, and
-install or dispose them in any order (each is independent of the other). A hook may dispose itself from
-inside its own handler. Linux: the install throws (no hook on that platform).
-
-The permission model says what the hooks need from the system and gives the app the switches:
-
-- `permissions.needed(Feature.MouseHook)` / `permissions.needed(Feature.KeyboardHook)`: the `Permission`s a
-  feature needs on this platform. Empty on Windows and Linux. On macOS both hooks need
-  `Permission.DeviceControl`, the "Device Control and Data Access" row in System Settings > Privacy &
-  Security, because their one shared `CGEventTap` filters events. `Permission.InputMonitoring` (the "Input
-  Monitoring" row, watching without filtering) is modelled too, and no feature here needs it.
-- `permissions.status(p)`: `"granted"`, `"missing"`, or `"not-applicable"` (this platform has no such
-  permission). Shows nothing.
-- `permissions.request(p)`: asks the system; on macOS the dialog appears each time while the permission is
-  missing, the user grants it in System Settings, and the next install succeeds.
-- `permissions.ready(feature)`: every needed permission is granted (always true where none is needed).
-- `permissions.autoRequest` (default `true`): whether an install that fails for a missing permission asks
-  the system by itself, once per process. Set it to `false` to ask only through `request`, in the app's own
-  time.
-
-`bun run examples/input-hooks.ts` shows the hooks behind that model; `bun scripts/hook-probe.ts` (Windows
-and macOS) checks them against the shipped library with synthesised input. The model and its toggles
-are tested as one app per grant, since macOS grants belong to the app that asks and each app should ask
-for one row only: `bun scripts/permission-probe.ts mouse-hook | keyboard-hook | input-monitoring before | after`
-builds `dist/sweetview-<scenario>-test.app` (bundle id `dev.n1h.sweetview.<scenario>-test`), launches
-it, and prints every answer against what that phase demands plus which row the run should have asked
-for. `before` resets the app's grant and expects every refusal; allow the row in the dialog, and
-`after` expects every success. The `input-monitoring` app asks for Input Monitoring only, and the hooks
-must still refuse after it is granted, since they need Device Control and Data Access. On Windows and
-Linux there is one phase, not-applicable, and the executable runs directly.
+- `webview_set_asset` (serve bytes at the webview's own origin) and `webview_set_background_color`. The
+  `Webview` class does not wrap them; call them over `bun:ffi` with the library path from `WEBVIEW_PATH`
+  or the file under `build/`.
+- System-wide mouse and keyboard hooks, with a permission model: see [Input hooks](#input-hooks).
 
 Webview is a tiny cross-platform library to make **web-based GUIs for desktop applications**.
 
@@ -106,6 +62,47 @@ webview.run();
 ```
 
 For more examples, browse the `examples` folder of this repository.
+
+## Input hooks
+
+Two system-wide hooks, wrapped from `webview_mouse_hook_install` / `webview_mouse_hook_remove` and
+`webview_keyboard_hook_install` / `webview_keyboard_hook_remove`:
+
+- `installMouseHook(handler)` returns `{ dispose() }`. The handler gets `{ event, x, y, wheel, modifiers }`
+  (`MouseEvent.Move`, `LeftDown`, `LeftUp`, `RightDown`, `RightUp`, `MiddleDown`, `MiddleUp`, `Wheel`;
+  screen units, origin at the top-left of the primary display; wheel in notches, positive away from the
+  user) and returns true to swallow the event so no window gets it. Windows: `WH_MOUSE_LL`.
+- `installKeyboardHook(handler)` returns `{ dispose() }`. The handler gets `{ event, code, raw, modifiers }`
+  (`KeyEvent.Down`, `Up`, `Repeat`; `code` is the DOM `KeyboardEvent.code` name of the physical key,
+  `"KeyZ"`, `"Delete"`, `"ArrowLeft"`..., so nothing switches on platform key numbers; `raw` is that number,
+  the virtual-key code on Windows and the virtual keycode on macOS) and returns true to swallow the key so
+  no window gets it, not even the focused one. Windows: `WH_KEYBOARD_LL`.
+- `modifiers` on every message is `{ shift, ctrl, alt, meta }` (Alt is Option and Meta is Command on macOS;
+  Meta is the Windows key on Windows), read inside the hook for that event. On a key message it is the state
+  after the event, so Shift's own `Down` has `shift: true`.
+
+Both hooks: one of each per process, call on the UI thread before `run()`, keep the handler quick, and
+install or dispose them in any order (each is independent of the other). A hook may dispose itself from
+inside its own handler. Linux: the install throws (no hook on that platform).
+
+The permission model says what the hooks need from the system and gives the app the switches:
+
+- `permissions.needed(Feature.MouseHook)` / `permissions.needed(Feature.KeyboardHook)`: the `Permission`s a
+  feature needs on this platform. Empty on Windows and Linux. On macOS both hooks need
+  `Permission.DeviceControl`, the "Device Control and Data Access" row in System Settings > Privacy &
+  Security, because their one shared `CGEventTap` filters events. `Permission.InputMonitoring` (the "Input
+  Monitoring" row, watching without filtering) is modelled too, and no feature here needs it.
+- `permissions.status(p)`: `"granted"`, `"missing"`, or `"not-applicable"` (this platform has no such
+  permission). Shows nothing.
+- `permissions.request(p)`: asks the system; on macOS the dialog appears each time while the permission is
+  missing, the user grants it in System Settings, and the next install succeeds.
+- `permissions.ready(feature)`: every needed permission is granted (always true where none is needed).
+- `permissions.autoRequest` (default `true`): whether an install that fails for a missing permission asks
+  the system by itself, once per process. Set it to `false` to ask only through `request`, in the app's own
+  time.
+
+`bun run examples/input-hooks.ts` shows the hooks behind that model. How they are tested is under
+[Testing the input hooks](#testing-the-input-hooks).
 
 ## Single-file executable
 
@@ -235,6 +232,27 @@ bun run examples/basic.ts
 ```
 
 For more examples, browse the `examples` folder of this repository.
+
+### Testing the input hooks
+
+`bun scripts/hook-probe.ts` (Windows and macOS) checks both hooks against the shipped library with
+synthesised input.
+
+The permission model and its toggles are tested as one app per grant, since macOS grants belong to
+the app that asks and each app should ask for one row only:
+`bun scripts/permission-probe.ts mouse-hook | keyboard-hook | input-monitoring before | after` builds
+`dist/sweetview-<scenario>-test.app` (bundle id `dev.n1h.sweetview.<scenario>-test`), launches it, and
+prints every answer against what that phase demands plus which row the run should have asked for.
+`before` resets the app's grant and expects every refusal; allow the row in the dialog, and `after`
+expects every success. The `input-monitoring` app asks for Input Monitoring only, and the hooks must
+still refuse after it is granted, since they need Device Control and Data Access. On Windows and Linux
+there is one phase, not-applicable, and the executable runs directly.
+
+On macOS the probe and the examples run as apps of their own as well, so that the grant lands on them
+and not on the terminal: the probe builds `dist/sweetview-hook-probe-test.app` by itself, and
+`bun scripts/example-app.ts input-hooks` builds and runs `dist/sweetview-input-hooks-example.app`. The
+first run of any of these apps asks; allow it and run again. Rebuilding an app (its sources newer than
+the bundle, or `--rebuild`) changes its ad-hoc signature, so it asks again.
 
 ## Credits
 
