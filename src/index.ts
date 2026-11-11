@@ -2,6 +2,12 @@ export { unload } from "./ffi";
 export * from "./webview";
 export { Modifier, modifiersFrom, type Modifiers } from "./input-hooks";
 export {
+  Feature,
+  Permission,
+  permissions,
+  type PermissionStatus,
+} from "./permissions";
+export {
   installMouseHook,
   MouseEvent,
   type MouseHandler,

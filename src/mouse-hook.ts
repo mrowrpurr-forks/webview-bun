@@ -2,7 +2,8 @@
 // hook that sees every mouse event before any window does and swallows the
 // ones the handler says to. One per process. Windows: a WH_MOUSE_LL hook on
 // the calling thread; macOS: a CGEventTap on the main run loop, which needs
-// the Accessibility permission. Call on the UI thread before run().
+// a system permission (src/permissions.ts says which). Call on the UI thread
+// before run().
 
 import { FFIType, JSCallback, dlopen } from "bun:ffi";
 import { libraryPath } from "./ffi";
@@ -62,8 +63,8 @@ export type MouseHook = { dispose(): void };
 
 /**
  * Installs the process's mouse hook. Throws when one is already installed, when the platform has none (Linux), or on
- * macOS when the process lacks the Accessibility permission (the system is asked to show its prompt once; the next
- * launch after the user grants it succeeds). Independent of `installKeyboardHook`: install both in either order, dispose
+ * macOS when the process lacks the permission `permissions.needed(Feature.MouseHook)` names (the system is asked for it
+ * once unless `permissions.autoRequest` is off; the next launch after the user grants it succeeds). Independent of `installKeyboardHook`: install both in either order, dispose
  * either, and the other keeps delivering. The hook may be disposed from inside its own handler.
  */
 export function installMouseHook(handler: MouseHandler): MouseHook {

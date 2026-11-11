@@ -1,28 +1,84 @@
-// Both system-wide hooks in a window: every mouse event with its modifiers and every key event
-// with its DOM code are written to the page, and Ctrl+Shift+K is swallowed (no window gets it)
-// while this runs. Windows and macOS (macOS asks for the Accessibility permission once).
+// Both system-wide hooks in a window, with the permission model in front: what the hooks need on
+// this platform, whether it is granted, and asking for it in the app's own time (never behind the
+// app's back: `permissions.autoRequest` is off here). Every mouse event with its modifiers and every
+// key event with its DOM code are written to the page, and Ctrl+Shift+K is swallowed (no window
+// gets it) while this runs. Windows and macOS.
 //
 //   bun run examples/input-hooks.ts
 
 import {
+  Feature,
   installKeyboardHook,
   installMouseHook,
   KeyEvent,
   MouseEvent,
+  permissions,
   Webview,
+  type KeyboardHook,
+  type MouseHook,
 } from "../src/index";
 
-const webview = new Webview();
-webview.title = "Input hooks";
-webview.setHTML(`<!doctype html>
-<body style="font: 14px monospace; margin: 1em">
-  <p>Press keys and move the mouse anywhere on the system. Ctrl+Shift+K is swallowed while this window runs.</p>
-  <pre id="log"></pre>
-  <script>
-    const log = document.getElementById("log");
-    window.show = (line) => { log.textContent = (line + "\\n" + log.textContent).split("\\n").slice(0, 30).join("\\n"); };
-  </script>
-</body>`);
+// ---- the permission toggle: the app decides when, if ever, the system asks the user ----------------
+
+permissions.autoRequest = false; // a failing install stays quiet; the app asks below, on its own terms
+
+/** The permissions both hooks need here and are not yet granted (none on Windows and Linux). */
+function missingPermissions() {
+  const needed = new Set([
+    ...permissions.needed(Feature.MouseHook),
+    ...permissions.needed(Feature.KeyboardHook),
+  ]);
+  return [...needed].filter((p) => permissions.status(p) === "missing");
+}
+
+/** Asks the user for what is missing, once, having said why; true when everything is granted afterwards. */
+function askForPermissions(): boolean {
+  const missing = missingPermissions();
+  if (missing.length === 0) return true;
+  console.log(
+    "The hooks need a permission you can grant in System Settings > Privacy & Security; asking now.",
+  );
+  return missing.every((p) => permissions.request(p) === "granted");
+}
+
+// ---- the hooks' own toggle: on is install, off is dispose -----------------------------------------
+
+let mouse: MouseHook | undefined;
+let keys: KeyboardHook | undefined;
+
+function enableInputHooks(show: (line: string) => void): boolean {
+  try {
+    keys ??= installKeyboardHook((m) => {
+      if (m.event !== KeyEvent.Repeat)
+        show(
+          `key ${keyEventName[m.event]} ${m.code} (raw ${m.raw}) ${mods(m.modifiers)}`,
+        );
+      return m.code === "KeyK" && m.modifiers.ctrl && m.modifiers.shift;
+    });
+    mouse ??= installMouseHook((m) => {
+      if (m.event !== MouseEvent.Move)
+        show(
+          `mouse ${mouseEventName[m.event]} at ${m.x},${m.y}${m.wheel ? ` wheel ${m.wheel}` : ""} ${mods(m.modifiers)}`,
+        );
+      return false;
+    });
+    return true;
+  } catch (err) {
+    disableInputHooks();
+    console.warn(
+      `input hooks off: ${err instanceof Error ? err.message : err}`,
+    );
+    return false;
+  }
+}
+
+function disableInputHooks() {
+  keys?.dispose();
+  mouse?.dispose();
+  keys = mouse = undefined;
+}
+
+// ---- the window ----------------------------------------------------------------------------------
 
 const keyEventName = ["Down", "Up", "Repeat"];
 const mouseEventName = [
@@ -35,7 +91,6 @@ const mouseEventName = [
   "MiddleUp",
   "Wheel",
 ];
-const show = (line: string) => webview.eval(`show(${JSON.stringify(line)})`);
 const mods = (m: {
   shift: boolean;
   ctrl: boolean;
@@ -46,21 +101,31 @@ const mods = (m: {
     .filter(Boolean)
     .join("+");
 
-const keys = installKeyboardHook((m) => {
-  if (m.event !== KeyEvent.Repeat)
-    show(
-      `key ${keyEventName[m.event]} ${m.code} (raw ${m.raw}) ${mods(m.modifiers)}`,
-    );
-  return m.code === "KeyK" && m.modifiers.ctrl && m.modifiers.shift;
-});
-const mouse = installMouseHook((m) => {
-  if (m.event !== MouseEvent.Move)
-    show(
-      `mouse ${mouseEventName[m.event]} at ${m.x},${m.y}${m.wheel ? ` wheel ${m.wheel}` : ""} ${mods(m.modifiers)}`,
-    );
-  return false;
-});
+const webview = new Webview();
+webview.title = "Input hooks";
+webview.setHTML(`<!doctype html>
+<body style="font: 14px monospace; margin: 1em">
+  <p id="state"></p>
+  <pre id="log"></pre>
+  <script>
+    const log = document.getElementById("log");
+    window.show = (line) => { log.textContent = (line + "\\n" + log.textContent).split("\\n").slice(0, 30).join("\\n"); };
+    window.state = (text) => { document.getElementById("state").textContent = text; };
+  </script>
+</body>`);
+const show = (line: string) => webview.eval(`show(${JSON.stringify(line)})`);
+
+const granted = askForPermissions();
+const on = granted && enableInputHooks(show);
+webview.eval(
+  `state(${JSON.stringify(
+    on
+      ? "Hooks on. Press keys and move the mouse anywhere on the system; Ctrl+Shift+K is swallowed."
+      : granted
+        ? "Hooks off: this platform has none, or the install failed (see the console)."
+        : "Hooks off: grant the permission in System Settings > Privacy & Security and run again.",
+  )})`,
+);
 
 webview.run();
-keys.dispose();
-mouse.dispose();
+disableInputHooks();

@@ -2,7 +2,7 @@
 // message carries, how a hook's install failure becomes an error, and the one rule about a hook's JSCallback (never
 // close it while native code is inside it). Both hooks live in the fork's library (sweetview-webview:
 // core/include/webview/detail/input_hooks.hh) and are system-wide, one of each per process; on macOS they listen on one
-// CGEventTap, so the Accessibility permission is asked for once.
+// CGEventTap, so the permission (src/permissions.ts) is asked for once.
 
 import type { JSCallback } from "bun:ffi";
 
@@ -48,7 +48,7 @@ export function hookInstallError(
     code === WEBVIEW_ERROR_DUPLICATE
       ? `a ${kind} hook is already installed`
       : code === WEBVIEW_ERROR_MISSING_DEPENDENCY
-        ? "the process needs the Accessibility permission (System Settings > Privacy & Security > Accessibility)"
+        ? "the process needs the Device Control and Data Access permission (System Settings > Privacy & Security)"
         : code === WEBVIEW_ERROR_UNSPECIFIED
           ? "the hook could not be installed (on Linux there is none)"
           : `error ${code}`;

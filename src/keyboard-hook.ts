@@ -2,8 +2,8 @@
 // keyboard hook that sees every key event before the focused window does and
 // swallows the ones the handler says to. One per process. Windows: a
 // WH_KEYBOARD_LL hook on the calling thread; macOS: key events on the same
-// CGEventTap as the mouse hook, which needs the Accessibility permission. Call
-// on the UI thread before run().
+// CGEventTap as the mouse hook, which needs a system permission
+// (src/permissions.ts says which). Call on the UI thread before run().
 
 import { CString, FFIType, JSCallback, dlopen, type Pointer } from "bun:ffi";
 import { libraryPath } from "./ffi";
@@ -62,8 +62,8 @@ export type KeyboardHook = { dispose(): void };
 
 /**
  * Installs the process's keyboard hook. Throws when one is already installed, when the platform has none (Linux), or on
- * macOS when the process lacks the Accessibility permission (the system is asked to show its prompt once; the next
- * launch after the user grants it succeeds). Independent of `installMouseHook`: install both in either order, dispose
+ * macOS when the process lacks the permission `permissions.needed(Feature.KeyboardHook)` names (the system is asked for
+ * it once unless `permissions.autoRequest` is off; the next launch after the user grants it succeeds). Independent of `installMouseHook`: install both in either order, dispose
  * either, and the other keeps delivering. The hook may be disposed from inside its own handler.
  */
 export function installKeyboardHook(handler: KeyHandler): KeyboardHook {

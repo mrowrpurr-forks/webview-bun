@@ -23,11 +23,27 @@ under `build/`. The hooks are wrapped:
   after the event, so Shift's own `Down` has `shift: true`.
 
 Both hooks: one of each per process, call on the UI thread before `run()`, keep the handler quick, and
-install or dispose them in any order (each is independent of the other). macOS: both listen on one
-session-level `CGEventTap`, which needs the Accessibility permission; without it the install throws after
-asking the system to show its prompt once. Linux: the install throws (no hook on that platform).
-`bun run examples/input-hooks.ts` shows both; `bun scripts/hook-probe.ts` (Windows and macOS) checks them against the
-shipped library with synthesised input.
+install or dispose them in any order (each is independent of the other). A hook may dispose itself from
+inside its own handler. Linux: the install throws (no hook on that platform).
+
+The permission model says what the hooks need from the system and gives the app the switches:
+
+- `permissions.needed(Feature.MouseHook)` / `permissions.needed(Feature.KeyboardHook)`: the `Permission`s a
+  feature needs on this platform. Empty on Windows and Linux. On macOS both hooks need
+  `Permission.DeviceControl`, the "Device Control and Data Access" row in System Settings > Privacy &
+  Security, because their one shared `CGEventTap` filters events. `Permission.InputMonitoring` (the "Input
+  Monitoring" row, watching without filtering) is modelled too, and no feature here needs it.
+- `permissions.status(p)`: `"granted"`, `"missing"`, or `"not-applicable"` (this platform has no such
+  permission). Shows nothing.
+- `permissions.request(p)`: asks the system; on macOS the dialog appears each time while the permission is
+  missing, the user grants it in System Settings, and the next install succeeds.
+- `permissions.ready(feature)`: every needed permission is granted (always true where none is needed).
+- `permissions.autoRequest` (default `true`): whether an install that fails for a missing permission asks
+  the system by itself, once per process. Set it to `false` to ask only through `request`, in the app's own
+  time.
+
+`bun run examples/input-hooks.ts` shows the hooks behind that model; `bun scripts/hook-probe.ts` (Windows
+and macOS) checks them against the shipped library with synthesised input.
 
 Webview is a tiny cross-platform library to make **web-based GUIs for desktop applications**.
 
