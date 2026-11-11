@@ -94,7 +94,8 @@ function hookScenario(which: "mouse-hook" | "keyboard-hook") {
     `[${permissions.needed(feature).map(nameOf).join(", ")}]`,
   );
 
-  // 2. Status, silently. Input Monitoring stays missing: this app never asks for it.
+  // 2. Status, silently. This app never asks for Input Monitoring, yet macOS answers it granted once
+  // Device Control and Data Access is: post-event access includes listen access.
   check(
     "status(DeviceControl)",
     granted,
@@ -102,7 +103,7 @@ function hookScenario(which: "mouse-hook" | "keyboard-hook") {
   );
   check(
     "status(InputMonitoring)",
-    missing,
+    granted,
     permissions.status(Permission.InputMonitoring),
   );
   check(
@@ -114,7 +115,7 @@ function hookScenario(which: "mouse-hook" | "keyboard-hook") {
   // 3. autoRequest off: an install may fail, and asks for nothing.
   permissions.autoRequest = false;
   const quiet = attempt(install);
-  if (quiet.hook) hooks.push(quiet.hook);
+  quiet.hook?.dispose(); // a hook installs once; free it for the next install
   check("install with autoRequest off", installs, outcomeOf(quiet));
   check(
     "error names the row (autoRequest off)",
