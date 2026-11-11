@@ -1,6 +1,6 @@
 // Exercises the mouse and keyboard hooks together against the library this
 // package loads (build/libwebview.dll or .dylib, or WEBVIEW_PATH): installs the
-// keyboard hook, then the mouse hook, pumps this thread's messages, synthesises
+// keyboard hook, then the mouse hook, pumps this thread's messages, synthesizes
 // key and mouse input (SendInput on Windows, CGEventPost on macOS), and checks
 // what the hooks saw: the modifiers on mouse messages, DOM codes, down / repeat
 // / up, the modifiers after a key event, disposing the keyboard hook from
@@ -56,7 +56,7 @@ if (logFile) {
   console.error = toLog;
 }
 
-// What the probe synthesises, in platform terms: a modifier or key by its platform code, a mouse move, a wheel notch,
+// What the probe synthesizes, in platform terms: a modifier or key by its platform code, a mouse move, a wheel notch,
 // and a pump of the thread's queue, so the steps below read the same on both platforms.
 type Input = {
   key(
@@ -413,7 +413,7 @@ setTimeout(
     console.log(`moves: ${moves}`);
     console.log(
       failures.length
-        ? "FAIL: the hooks missed or misreported some of the synthesised input"
+        ? "FAIL: the hooks missed or misreported some of the synthesized input"
         : "OK: modifiers on mouse messages, DOM codes, down/repeat/up, dispose from inside the handler, and the mouse hook outliving the keyboard hook",
     );
     process.exit(failures.length ? 1 : 0);

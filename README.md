@@ -160,7 +160,7 @@ if (!permissions.ready(Feature.KeyboardHook)) {
 
 Without the permission, an install throws: `the process needs the Device Control and Data Access
 permission (System Settings > Privacy & Security)`. `Permission.InputMonitoring` (the **Input
-Monitoring** row) is modelled too; no feature here needs it.
+Monitoring** row) is modeled too; no feature here needs it.
 
 A grant belongs to the app that asks: a `bun` script gets its terminal's, a compiled `.app` its own.
 `examples/input-hooks.ts` shows all of this in a window.
@@ -298,7 +298,7 @@ For more examples, browse the `examples` folder of this repository.
 
 | Command                                        | What it checks                                                                  |
 | ---------------------------------------------- | ------------------------------------------------------------------------------- |
-| `bun scripts/hook-probe.ts`                    | Both hooks against the shipped library, with synthesised input (Windows, macOS) |
+| `bun scripts/hook-probe.ts`                    | Both hooks against the shipped library, with synthesized input (Windows, macOS) |
 | `bun scripts/permission-probe.ts <app> before` | With the app's grant wiped: every refusal, and the one dialog                   |
 | `bun scripts/permission-probe.ts <app> after`  | With it allowed: every success, no dialog                                       |
 | `bun scripts/example-app.ts input-hooks`       | The example window, as an app                                                   |
