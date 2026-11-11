@@ -1,7 +1,13 @@
-// What runs inside the permission probe's app bundle (scripts/permission-probe.ts builds and launches
-// it): exercises the permission model and the two toggles against the grants this app holds, compares
-// every answer with what the expected grant combination demands, and writes the report the runner
-// prints. Started by the runner with --expect <combo> --report <file>; not meant to be run by hand.
+// What runs inside each permission test app (scripts/permission-probe.ts builds and launches them):
+// exercises the permission model and the two toggles for one scenario against the grant this app
+// holds, compares every answer with what the phase demands, and writes the report the runner prints.
+// Started by the runner with --scenario <s> --phase <before|after|not-applicable> --report <file>;
+// not meant to be run by hand.
+//
+//   mouse-hook        the mouse hook needs Device Control and Data Access; refuses before, works after
+//   keyboard-hook     the same for the keyboard hook
+//   input-monitoring  asks for Input Monitoring only; the hooks refuse before and after, since that
+//                     row is not the one they need, and the app never touches the other row
 
 import { writeFileSync } from "node:fs";
 import {
@@ -15,38 +21,35 @@ import {
   type PermissionStatus,
 } from "../src/index";
 
-type Combo =
-  "none" | "device-control" | "input-monitoring" | "both" | "not-applicable";
+type Scenario = "mouse-hook" | "keyboard-hook" | "input-monitoring";
+type Phase = "before" | "after" | "not-applicable";
 type Check = { name: string; expected: string; actual: string; pass: boolean };
+type Hook = MouseHook | KeyboardHook;
+
+const DEVICE_CONTROL = "Device Control and Data Access";
+const INPUT_MONITORING = "Input Monitoring";
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(name);
   return i >= 0 ? process.argv[i + 1] : undefined;
 };
-const combo = (arg("--expect") ?? "not-applicable") as Combo;
+const scenario = (arg("--scenario") ?? "mouse-hook") as Scenario;
+const phase = (arg("--phase") ?? "not-applicable") as Phase;
 const report = arg("--report");
 
-const hasPermissions = process.platform === "darwin";
-const dc: PermissionStatus = !hasPermissions
+const mac = process.platform === "darwin";
+const granted: PermissionStatus = !mac
   ? "not-applicable"
-  : combo === "device-control" || combo === "both"
+  : phase === "after"
     ? "granted"
     : "missing";
-const im: PermissionStatus = !hasPermissions
-  ? "not-applicable"
-  : combo === "input-monitoring" || combo === "both"
-    ? "granted"
-    : "missing";
-const installs =
-  process.platform === "linux" ? "throws" : dc === "missing" ? "throws" : "ok";
+const missing: PermissionStatus = mac ? "missing" : "not-applicable";
 
 const checks: Check[] = [];
-let dialogs = 0;
+let rowAsked: string | null = null;
 const check = (name: string, expected: string, actual: string) =>
   checks.push({ name, expected, actual, pass: expected === actual });
-const attempt = (
-  install: () => MouseHook | KeyboardHook,
-): { outcome: string; hook?: MouseHook | KeyboardHook } => {
+const attempt = (install: () => Hook): { outcome: string; hook?: Hook } => {
   try {
     return { outcome: "ok", hook: install() };
   } catch (err) {
@@ -57,88 +60,154 @@ const attempt = (
 };
 const outcomeOf = (r: { outcome: string }) =>
   r.outcome === "ok" ? "ok" : "throws";
-const hooks: (MouseHook | KeyboardHook)[] = [];
+const hooks: Hook[] = [];
+const installMouse = () => installMouseHook(() => false);
+const installKeys = () => installKeyboardHook(() => false);
 
-// 1. What the hooks need here: the same for both, DeviceControl on macOS, nothing elsewhere.
-const neededMouse = permissions.needed(Feature.MouseHook);
-const neededKeys = permissions.needed(Feature.KeyboardHook);
-check(
-  "needed(MouseHook)",
-  hasPermissions ? "[DeviceControl]" : "[]",
-  `[${neededMouse.map(nameOf).join(", ")}]`,
-);
-check(
-  "needed(KeyboardHook)",
-  hasPermissions ? "[DeviceControl]" : "[]",
-  `[${neededKeys.map(nameOf).join(", ")}]`,
-);
-
-// 2. Status, silently.
-check(
-  "status(DeviceControl)",
-  dc,
-  permissions.status(Permission.DeviceControl),
-);
-check(
-  "status(InputMonitoring)",
-  im,
-  permissions.status(Permission.InputMonitoring),
-);
-check(
-  "ready(KeyboardHook)",
-  String(dc !== "missing"),
-  String(permissions.ready(Feature.KeyboardHook)),
-);
-
-// 3. autoRequest off: an install may fail, and asks for nothing.
-permissions.autoRequest = false;
-const quiet = attempt(() => installKeyboardHook(() => false));
-if (quiet.hook) hooks.push(quiet.hook);
-check("install with autoRequest off", installs, outcomeOf(quiet));
-check(
-  "error names the permission (autoRequest off)",
-  String(dc === "missing"),
-  String(quiet.outcome.includes("Device Control and Data Access")),
-);
-
-// 4. autoRequest on: a failing install asks the system once; a second failing install does not ask again.
-permissions.autoRequest = true;
-const loud = attempt(() => installMouseHook(() => false));
-if (loud.hook) hooks.push(loud.hook);
-check("install with autoRequest on", installs, outcomeOf(loud));
-if (dc === "missing") dialogs += 1;
-if (!loud.hook) {
-  const again = attempt(() => installMouseHook(() => false));
-  check("second failing install", "throws", outcomeOf(again));
-}
-
-// 5. request(DeviceControl): asks while missing, says granted when granted.
-check(
-  "request(DeviceControl)",
-  dc,
-  permissions.request(Permission.DeviceControl),
-);
-if (dc === "missing") dialogs += 1;
-
-// 6. request(InputMonitoring): the only path that ever touches that row.
-check(
-  "request(InputMonitoring)",
-  im,
-  permissions.request(Permission.InputMonitoring),
-);
-if (im === "missing") dialogs += 1;
+if (scenario === "input-monitoring") inputMonitoringScenario();
+else hookScenario(scenario);
 
 for (const h of hooks) h.dispose();
 
-const out = {
-  platform: process.platform,
-  combo,
-  checks,
-  dialogsExpected: dialogs,
-};
+const out = { platform: process.platform, scenario, phase, checks, rowAsked };
 if (report) writeFileSync(report, JSON.stringify(out, null, 2));
 else console.log(JSON.stringify(out, null, 2));
 process.exit(checks.every((c) => c.pass) ? 0 : 1);
+
+// One hook, needing Device Control and Data Access: refused and asked for before, working after.
+function hookScenario(which: "mouse-hook" | "keyboard-hook") {
+  const feature =
+    which === "mouse-hook" ? Feature.MouseHook : Feature.KeyboardHook;
+  const install = which === "mouse-hook" ? installMouse : installKeys;
+  const label = which === "mouse-hook" ? "MouseHook" : "KeyboardHook";
+  const installs =
+    process.platform === "linux"
+      ? "throws"
+      : granted === "missing"
+        ? "throws"
+        : "ok";
+
+  // 1. What the hook needs here: DeviceControl on macOS, nothing elsewhere.
+  check(
+    `needed(${label})`,
+    mac ? "[DeviceControl]" : "[]",
+    `[${permissions.needed(feature).map(nameOf).join(", ")}]`,
+  );
+
+  // 2. Status, silently. Input Monitoring stays missing: this app never asks for it.
+  check(
+    "status(DeviceControl)",
+    granted,
+    permissions.status(Permission.DeviceControl),
+  );
+  check(
+    "status(InputMonitoring)",
+    missing,
+    permissions.status(Permission.InputMonitoring),
+  );
+  check(
+    `ready(${label})`,
+    String(granted !== "missing"),
+    String(permissions.ready(feature)),
+  );
+
+  // 3. autoRequest off: an install may fail, and asks for nothing.
+  permissions.autoRequest = false;
+  const quiet = attempt(install);
+  if (quiet.hook) hooks.push(quiet.hook);
+  check("install with autoRequest off", installs, outcomeOf(quiet));
+  check(
+    "error names the row (autoRequest off)",
+    String(granted === "missing"),
+    String(quiet.outcome.includes(DEVICE_CONTROL)),
+  );
+
+  // 4. autoRequest on: a failing install asks the system once; a second failing install does not ask again.
+  permissions.autoRequest = true;
+  const loud = attempt(install);
+  if (loud.hook) hooks.push(loud.hook);
+  check("install with autoRequest on", installs, outcomeOf(loud));
+  if (granted === "missing") rowAsked = DEVICE_CONTROL;
+  if (!loud.hook) {
+    const again = attempt(install);
+    check("second failing install", "throws", outcomeOf(again));
+  }
+
+  // 5. request(DeviceControl): the same row again while missing, granted when granted.
+  check(
+    "request(DeviceControl)",
+    granted,
+    permissions.request(Permission.DeviceControl),
+  );
+}
+
+// Input Monitoring only: the one path that touches that row. Granting it changes nothing for the
+// hooks, which is the proof that they need the other row. autoRequest stays off so that nothing
+// here ever asks for Device Control and Data Access.
+function inputMonitoringScenario() {
+  permissions.autoRequest = false;
+  const installs = process.platform === "win32" ? "ok" : "throws";
+
+  // 1. Neither hook needs Input Monitoring.
+  check(
+    "needed(MouseHook) has InputMonitoring",
+    "false",
+    String(
+      permissions
+        .needed(Feature.MouseHook)
+        .includes(Permission.InputMonitoring),
+    ),
+  );
+  check(
+    "needed(KeyboardHook) has InputMonitoring",
+    "false",
+    String(
+      permissions
+        .needed(Feature.KeyboardHook)
+        .includes(Permission.InputMonitoring),
+    ),
+  );
+
+  // 2. Status, silently. Device Control stays missing in both phases: this app never asks for it.
+  check(
+    "status(InputMonitoring)",
+    granted,
+    permissions.status(Permission.InputMonitoring),
+  );
+  check(
+    "status(DeviceControl)",
+    missing,
+    permissions.status(Permission.DeviceControl),
+  );
+  check(
+    "ready(KeyboardHook)",
+    String(!mac),
+    String(permissions.ready(Feature.KeyboardHook)),
+  );
+
+  // 3. request(InputMonitoring): asks while missing, granted when granted.
+  check(
+    "request(InputMonitoring)",
+    granted,
+    permissions.request(Permission.InputMonitoring),
+  );
+  if (granted === "missing") rowAsked = INPUT_MONITORING;
+
+  // 4. The hooks refuse either way, and the error names the row they do need.
+  for (const [label, install] of [
+    ["mouse", installMouse],
+    ["keyboard", installKeys],
+  ] as const) {
+    const r = attempt(install);
+    if (r.hook) hooks.push(r.hook);
+    check(`install ${label} hook (autoRequest off)`, installs, outcomeOf(r));
+    check(
+      `${label} error names ${DEVICE_CONTROL}`,
+      String(mac),
+      String(r.outcome.includes(DEVICE_CONTROL)),
+    );
+  }
+}
 
 function nameOf(p: Permission): string {
   return p === Permission.DeviceControl

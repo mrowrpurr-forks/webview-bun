@@ -1,19 +1,23 @@
-// Tests the permission model and its toggles as an app of its own, one command per grant combination:
+// Tests the permission model as one app per grant. macOS grants belong to an app, so each test app
+// asks for exactly one row of System Settings > Privacy & Security and is named for what it asks;
+// the dialog says which app wants which row, and each app ends up listed under one row only.
 //
-//   bun scripts/permission-probe.ts none               # resets the probe app's grants first, then runs
-//   bun scripts/permission-probe.ts device-control     # after you switched the app on in that row
-//   bun scripts/permission-probe.ts input-monitoring   # that row on, Device Control and Data Access off
-//   bun scripts/permission-probe.ts both
+//   bun scripts/permission-probe.ts mouse-hook before        # grants wiped: install refuses and asks for Device Control and Data Access
+//   bun scripts/permission-probe.ts mouse-hook after         # that row allowed: install works, nothing asked
+//   bun scripts/permission-probe.ts keyboard-hook before      # the same pair for the keyboard hook
+//   bun scripts/permission-probe.ts keyboard-hook after
+//   bun scripts/permission-probe.ts input-monitoring before   # asks for Input Monitoring only
+//   bun scripts/permission-probe.ts input-monitoring after    # allowed: the hooks still refuse (they need the other row)
 //
-// The argument is what the probe app holds in System Settings > Privacy & Security when you run the
-// command. The runner compiles scripts/permission-probe-app.ts into dist/permission-probe.app (its own
-// bundle id, dev.n1h.sweetview.permission-probe, so grants land on it and not on your terminal), signs
-// it ad hoc, launches it with open and waits, then prints each check with PASS or FAIL and how many
-// system dialogs that run should have shown you. The bundle is built once and reused, so its identity,
-// and with it the grants, survive between runs; --rebuild builds it again (after which macOS forgets its
-// grants, because an ad-hoc signature changes with the binary).
+// `before` resets the app's grants first (tccutil), launches it, and expects every refusal; allow the
+// row in the dialog it raises (or in System Settings), then `after` expects every success. The runner
+// compiles scripts/permission-probe-app.ts into dist/sweetview-<scenario>-test.app (bundle id
+// dev.n1h.sweetview.<scenario>-test), signs it ad hoc, launches it with open and waits, then prints
+// each check with PASS or FAIL and which row the run should have asked for. A bundle is built once and
+// reused, so its identity, and with it the grant, survives between runs; --rebuild builds it again
+// (after which macOS forgets the grant, because an ad-hoc signature changes with the binary).
 //
-// On Windows and Linux there are no such permissions: the one combination is "not-applicable", the
+// On Windows and Linux there are no such permissions: the one phase is "not-applicable", the
 // executable is run directly, and the expected answers are empty needs and not-applicable statuses.
 
 import {
@@ -27,27 +31,34 @@ import {
 import { join } from "node:path";
 import { $ } from "bun";
 
-const combos = ["none", "device-control", "input-monitoring", "both"] as const;
+const scenarios = ["mouse-hook", "keyboard-hook", "input-monitoring"] as const;
+const phases = ["before", "after"] as const;
+type Scenario = (typeof scenarios)[number];
+type Phase = (typeof phases)[number];
+
 const args = process.argv.slice(2);
 const rebuild = args.includes("--rebuild");
-const combo = args.find((a) => !a.startsWith("--"));
+const [scenario, phaseArg] = args.filter((a) => !a.startsWith("--"));
 const mac = process.platform === "darwin";
 
-if (mac && !combos.includes(combo as (typeof combos)[number])) {
-  console.error(
-    `usage: bun scripts/permission-probe.ts <${combos.join(" | ")}> [--rebuild]`,
-  );
+const usage = `usage: bun scripts/permission-probe.ts <${scenarios.join(" | ")}> ${mac ? `<${phases.join(" | ")}> ` : ""}[--rebuild]`;
+if (!scenarios.includes(scenario as Scenario)) {
+  console.error(usage);
   process.exit(2);
 }
-const expect = mac ? combo! : "not-applicable";
+if (mac && !phases.includes(phaseArg as Phase)) {
+  console.error(usage);
+  process.exit(2);
+}
+const phase = mac ? (phaseArg as Phase) : "not-applicable";
 
 const root = new URL("..", import.meta.url).pathname.replace(
   /^\/([A-Za-z]:)/,
   "$1",
 );
 const dist = join(root, "dist");
-const name = "permission-probe";
-const bundleId = "dev.n1h.sweetview.permission-probe";
+const name = `sweetview-${scenario}-test`;
+const bundleId = `dev.n1h.sweetview.${scenario}-test`;
 const app = join(dist, `${name}.app`);
 const binary = mac
   ? join(app, "Contents", "MacOS", name)
@@ -82,34 +93,37 @@ if (!existsSync(binary)) {
     chmodSync(binary, 0o755);
     await $`codesign --sign - --force --deep ${app}`.quiet();
     console.log(
-      `built ${app} (${bundleId}); macOS forgets its grants whenever it is rebuilt`,
+      `built ${app} (${bundleId}); macOS forgets its grant whenever it is rebuilt`,
     );
   }
 }
 
-if (mac && expect === "none") {
+if (mac && phase === "before") {
   console.log(`resetting every grant of ${bundleId}`);
   await $`tccutil reset All ${bundleId}`.nothrow().quiet();
 }
 
 const report = join(dist, `${name}-report.json`);
 rmSync(report, { force: true });
-console.log(`running as ${mac ? app : binary}, expecting "${expect}"`);
+console.log(`running ${mac ? app : binary}: ${scenario}, ${phase}`);
 if (mac)
-  await $`open -W -n ${app} --args --expect ${expect} --report ${report}`
+  await $`open -W -n ${app} --args --scenario ${scenario} --phase ${phase} --report ${report}`
     .nothrow()
     .quiet();
-else await $`${binary} --expect ${expect} --report ${report}`.nothrow().quiet();
+else
+  await $`${binary} --scenario ${scenario} --phase ${phase} --report ${report}`
+    .nothrow()
+    .quiet();
 
 if (!existsSync(report)) {
   console.log(
-    "FAIL: the probe app wrote no report (did it launch? on macOS, Finder may call an unsigned copy damaged)",
+    "FAIL: the test app wrote no report (did it launch? on macOS, Finder may call an unsigned copy damaged)",
   );
   process.exit(1);
 }
 const out = JSON.parse(readFileSync(report, "utf8")) as {
   checks: { name: string; expected: string; actual: string; pass: boolean }[];
-  dialogsExpected: number;
+  rowAsked: string | null;
 };
 const width = Math.max(...out.checks.map((c) => c.name.length));
 for (const c of out.checks)
@@ -119,11 +133,13 @@ for (const c of out.checks)
 const failed = out.checks.filter((c) => !c.pass).length;
 if (mac)
   console.log(
-    `system dialogs you should have seen during this run: ${out.dialogsExpected}`,
+    out.rowAsked
+      ? `this run should have asked you for: ${out.rowAsked} (for ${name})`
+      : "this run should have asked you for nothing",
   );
 console.log(
   failed
-    ? `FAIL: ${failed} check(s) did not match "${expect}"`
-    : `OK: every answer matches "${expect}"`,
+    ? `FAIL: ${failed} check(s) did not match "${scenario} ${phase}"`
+    : `OK: every answer matches "${scenario} ${phase}"`,
 );
 process.exit(failed ? 1 : 0);

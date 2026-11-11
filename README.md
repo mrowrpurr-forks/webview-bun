@@ -44,12 +44,14 @@ The permission model says what the hooks need from the system and gives the app 
 
 `bun run examples/input-hooks.ts` shows the hooks behind that model; `bun scripts/hook-probe.ts` (Windows
 and macOS) checks them against the shipped library with synthesised input. The model and its toggles
-are tested as an app of their own, one command per grant combination, since grants belong to the app
-that asks: `bun scripts/permission-probe.ts none | device-control | input-monitoring | both` builds
-`dist/permission-probe.app` (bundle id `dev.n1h.sweetview.permission-probe`), launches it, and prints
-every answer against what that combination demands plus how many system dialogs the run should have
-shown; `none` resets the app's grants first. On Windows and Linux the one combination is
-not-applicable and the executable runs directly.
+are tested as one app per grant, since macOS grants belong to the app that asks and each app should ask
+for one row only: `bun scripts/permission-probe.ts mouse-hook | keyboard-hook | input-monitoring before | after`
+builds `dist/sweetview-<scenario>-test.app` (bundle id `dev.n1h.sweetview.<scenario>-test`), launches
+it, and prints every answer against what that phase demands plus which row the run should have asked
+for. `before` resets the app's grant and expects every refusal; allow the row in the dialog, and
+`after` expects every success. The `input-monitoring` app asks for Input Monitoring only, and the hooks
+must still refuse after it is granted, since they need Device Control and Data Access. On Windows and
+Linux there is one phase, not-applicable, and the executable runs directly.
 
 Webview is a tiny cross-platform library to make **web-based GUIs for desktop applications**.
 
