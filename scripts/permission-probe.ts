@@ -24,8 +24,10 @@ import {
   chmodSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
@@ -64,7 +66,18 @@ const binary = mac
   ? join(app, "Contents", "MacOS", name)
   : join(dist, name + (process.platform === "win32" ? ".exe" : ""));
 
-if (rebuild && existsSync(mac ? app : binary))
+// A bundle older than what goes into it (the app source, the bindings, the shipped library) would
+// test stale code, so it is rebuilt, at the cost of its grant.
+const stale =
+  existsSync(binary) &&
+  newestMtime([
+    join(root, "scripts", "permission-probe-app.ts"),
+    join(root, "src"),
+    join(root, "build"),
+  ]) > statSync(binary).mtimeMs;
+if (stale && !rebuild)
+  console.log(`${name} is older than its sources: rebuilding it`);
+if ((rebuild || stale) && existsSync(mac ? app : binary))
   rmSync(mac ? app : binary, { recursive: true, force: true });
 if (!existsSync(binary)) {
   mkdirSync(join(binary, ".."), { recursive: true });
@@ -143,3 +156,18 @@ console.log(
     : `OK: every answer matches "${scenario} ${phase}"`,
 );
 process.exit(failed ? 1 : 0);
+
+function newestMtime(paths: string[]): number {
+  let newest = 0;
+  for (const p of paths) {
+    if (!existsSync(p)) continue;
+    const st = statSync(p);
+    newest = Math.max(
+      newest,
+      st.isDirectory()
+        ? newestMtime(readdirSync(p).map((f) => join(p, f)))
+        : st.mtimeMs,
+    );
+  }
+  return newest;
+}
