@@ -184,7 +184,7 @@ bun build --compile --minify --sourcemap ./examples/todoapp/app.ts --outfile tod
 >
 > #### 🪟 To hide it in Windows:
 >
-> Download and run [hidecmd.bat](https://github.com/tr1ckydev/webview-bun/blob/main/scripts/hidecmd.bat) from this repository, provide the exe path when prompted.
+> Run [`bun scripts/hidecmd.ts`](scripts/hidecmd.ts), give it the exe path when prompted, and it marks the executable as a GUI program.
 >
 > #### 🍎 To hide it in macOS:
 >
@@ -297,38 +297,6 @@ bun run examples/basic.ts
 ```
 
 For more examples, browse the `examples` folder of this repository.
-
-### Testing the input hooks
-
-```bash
-bun run test
-```
-
-[`test/input-hooks/run.ts`](test/input-hooks/run.ts) runs the suite in order and prints a summary:
-
-| Step                                                               | What it checks                                                                  |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
-| [`hooks.ts`](test/input-hooks/hooks.ts)                            | Both hooks against the shipped library, with synthesized input (Windows, macOS) |
-| [`permissions.ts`](test/input-hooks/permissions.ts) `<app> before` | With the app's grant wiped: every refusal, and the one dialog                   |
-| [`permissions.ts`](test/input-hooks/permissions.ts) `<app> after`  | With it allowed: every success, no dialog                                       |
-
-`<app>` is `mouse-hook`, `keyboard-hook` or `input-monitoring`: one test app per grant, because
-macOS grants belong to the app that asks and each app should ask for one row only.
-
-- Each step can be run on its own: `bun test/input-hooks/hooks.ts`,
-  `bun test/input-hooks/permissions.ts mouse-hook before`.
-- The `input-monitoring` app asks for Input Monitoring alone; the hooks must still refuse after it is
-  granted.
-- On macOS every step runs as an app of its own under `dist/`, ad-hoc signed
-  ([`app-bundle.ts`](test/input-hooks/app-bundle.ts) builds them). The suite stops at each permission
-  dialog and waits for Enter once it is allowed.
-- A rebuild (sources newer than the bundle, or `--rebuild`) changes an app's signature, and it asks
-  again.
-- On Windows and Linux there is nothing to allow; the permission steps have one phase,
-  not-applicable, and run as plain executables.
-
-[`scripts/example-app.ts`](scripts/example-app.ts) `input-hooks` runs the example window as an app of
-its own the same way.
 
 ## Credits
 

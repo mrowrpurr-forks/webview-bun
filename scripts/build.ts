@@ -5,11 +5,9 @@ const { arch, platform } = process;
 
 switch (platform) {
   case "win32":
-    await $`
-        scripts/build.bat
-        cp webview/build/core/Release/webview.dll build/libwebview.dll
-        `;
-    break;
+    // The justfile's build recipe enters the Visual Studio dev shell from pwsh and runs CMake itself.
+    console.error("on Windows, build with `just build`");
+    process.exit(1);
   case "linux":
     await $`
         cd webview
