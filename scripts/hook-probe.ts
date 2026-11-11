@@ -69,7 +69,7 @@ type Input = {
   pump(): void;
   raw: Record<"z" | "delete", number>;
 };
-type KeyName = "shift" | "control" | "alt" | "z" | "delete";
+type KeyName = "shift" | "control" | "alt" | "meta" | "z" | "delete";
 
 function windowsInput(): Input {
   const user32 = dlopen("user32.dll", {
@@ -99,6 +99,7 @@ function windowsInput(): Input {
       shift: { vk: 0x10, scan: 0x2a, extended: false },
       control: { vk: 0x11, scan: 0x1d, extended: false },
       alt: { vk: 0x12, scan: 0x38, extended: false },
+      meta: { vk: 0x5b, scan: 0x5b, extended: true },
       z: { vk: 0x5a, scan: 0x2c, extended: false },
       delete: { vk: 0x2e, scan: 0x53, extended: true },
     };
@@ -189,6 +190,7 @@ function macInput(): Input {
     shift: 0x20000n,
     control: 0x40000n,
     alt: 0x80000n,
+    meta: 0x100000n,
     z: 0n,
     delete: 0n,
   };
@@ -196,6 +198,7 @@ function macInput(): Input {
     shift: 0x38,
     control: 0x3b,
     alt: 0x3a,
+    meta: 0x37,
     z: 0x06,
     delete: 0x75,
   };
@@ -338,6 +341,10 @@ const steps: Step[] = [
     expect: want("key Down ControlLeft"),
   },
   { do: () => input.wheel(), expect: want("mouse Wheel wheel=1 mods=ctrl") },
+  // Meta (Command, the Windows key) while Control is held, so that Windows does not open Start on its release.
+  { do: () => input.key("meta", true), expect: want("key Down MetaLeft") },
+  { do: () => input.move(), expect: want("mouse Move mods=ctrl+meta") },
+  { do: () => input.key("meta", false), expect: want("key Up MetaLeft") },
   // Z as a keyboard sends it; held, so the second down is a repeat.
   {
     do: () => input.key("z", true, { scan: true }),
