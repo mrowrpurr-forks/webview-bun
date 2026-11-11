@@ -11,7 +11,7 @@ The library this package ships is built from
 [sweetview-webview](https://github.com/n0t-invented-here/sweetview-webview), a fork of webview that adds:
 
 - `webview_set_asset` (serve bytes at the webview's own origin) and `webview_set_background_color`,
-  called over `bun:ffi` with the library path from `src/ffi.ts` (the `Webview` class does not wrap them).
+  called over `bun:ffi` with the library path from [`src/ffi.ts`](src/ffi.ts) (the `Webview` class does not wrap them).
 - System-wide mouse and keyboard hooks with a permission model: [Input hooks](#input-hooks).
 
 ## Installation
@@ -167,7 +167,7 @@ permission (System Settings > Privacy & Security)`.
 `Permission.InputMonitoring` (the **Input Monitoring** row) is modeled too; no feature here needs it.
 
 A grant belongs to the app that asks: a `bun` script gets its terminal's, a compiled `.app` its own.
-`examples/input-hooks.ts` shows all of this in a window.
+[`examples/input-hooks.ts`](examples/input-hooks.ts) shows all of this in a window.
 
 ## Single-file executable
 
@@ -225,7 +225,7 @@ Please use `bun pretty` to automatically format all files.
 
 ### Building the shipped library
 
-`just build` ([just](https://github.com/casey/just), pwsh) fetches the `webview/` submodule if it is empty, builds the library for this OS and copies it to `build/` (`libwebview.dll`, `libwebview.dylib`, or `libwebview-<arch>.so`), where `src/ffi.ts` imports it from and the npm package ships it. On Windows it enters the Visual Studio dev shell from pwsh and runs CMake with ninja itself, no `cmd` or `.bat`; elsewhere it runs `bun scripts/build.ts`. Commit the result in `build/` so the published package carries it. `just pack` shows what `npm publish` would upload; `just publish` publishes.
+`just build` ([just](https://github.com/casey/just), pwsh) fetches the `webview/` submodule if it is empty, builds the library for this OS and copies it to `build/` (`libwebview.dll`, `libwebview.dylib`, or `libwebview-<arch>.so`), where [`src/ffi.ts`](src/ffi.ts) imports it from and the npm package ships it. On Windows it enters the Visual Studio dev shell from pwsh and runs CMake with ninja itself, no `cmd` or `.bat`; elsewhere it runs `bun scripts/build.ts`. Commit the result in `build/` so the published package carries it. `just pack` shows what `npm publish` would upload; `just publish` publishes.
 
 ### Prerequisites
 
@@ -300,12 +300,12 @@ For more examples, browse the `examples` folder of this repository.
 
 ### Testing the input hooks
 
-| Command                                        | What it checks                                                                  |
-| ---------------------------------------------- | ------------------------------------------------------------------------------- |
-| `bun scripts/hook-probe.ts`                    | Both hooks against the shipped library, with synthesized input (Windows, macOS) |
-| `bun scripts/permission-probe.ts <app> before` | With the app's grant wiped: every refusal, and the one dialog                   |
-| `bun scripts/permission-probe.ts <app> after`  | With it allowed: every success, no dialog                                       |
-| `bun scripts/example-app.ts input-hooks`       | The example window, as an app                                                   |
+| Command                                                                       | What it checks                                                                  |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [`bun scripts/hook-probe.ts`](scripts/hook-probe.ts)                          | Both hooks against the shipped library, with synthesized input (Windows, macOS) |
+| [`bun scripts/permission-probe.ts <app> before`](scripts/permission-probe.ts) | With the app's grant wiped: every refusal, and the one dialog                   |
+| [`bun scripts/permission-probe.ts <app> after`](scripts/permission-probe.ts)  | With it allowed: every success, no dialog                                       |
+| [`bun scripts/example-app.ts input-hooks`](scripts/example-app.ts)            | The example window, as an app                                                   |
 
 `<app>` is `mouse-hook`, `keyboard-hook` or `input-monitoring`: one test app per grant, because
 macOS grants belong to the app that asks and each app should ask for one row only.
