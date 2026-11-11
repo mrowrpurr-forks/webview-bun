@@ -139,13 +139,13 @@ Every message carries `modifiers: { shift, ctrl, alt, meta }`, read for that eve
 On macOS both hooks need **Device Control and Data Access** (System Settings > Privacy & Security),
 because their event tap filters events. Windows and Linux need nothing.
 
-The permission model tells the app what is needed and whether it is granted, and leaves it to the app
+The permission model tells the app what is needed and whether it is granted, and lets the app decide
 when, if ever, the user is asked:
 
 ```typescript
 import { Feature, Permission, permissions } from "@n1h/sweetview-webview-bun";
 
-permissions.autoRequest = false; // never ask behind the app's back
+permissions.autoRequest = false; // no system dialog from a failed install
 
 if (!permissions.ready(Feature.KeyboardHook)) {
   explainWhyTheAppNeedsIt();

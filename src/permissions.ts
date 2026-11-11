@@ -105,7 +105,7 @@ export const permissions = {
   /**
    * Whether an install that fails for a missing permission asks the system for it by itself, once per process. On by
    * default, so an app that never looks at permissions still gets the system's dialog the first time it installs a
-   * hook. Turn it off to ask in your own time with `request`, for example after explaining why, or once per user
+   * hook. Turn it off to ask only through `request`, for example after explaining why, or once per user
    * rather than per launch.
    */
   get autoRequest(): boolean {
