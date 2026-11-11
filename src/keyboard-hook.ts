@@ -7,7 +7,13 @@
 
 import { CString, FFIType, JSCallback, dlopen, type Pointer } from "bun:ffi";
 import { libraryPath } from "./ffi";
-import { hookInstallError, modifiersFrom, type Modifiers } from "./input-hooks";
+import {
+  closeOrphans,
+  HookCallback,
+  hookInstallError,
+  modifiersFrom,
+  type Modifiers,
+} from "./input-hooks";
 
 // Bound on first use, separately from the mouse hook, so a library with one hook and not the other still serves the
 // one it has.
@@ -58,34 +64,37 @@ export type KeyboardHook = { dispose(): void };
  * Installs the process's keyboard hook. Throws when one is already installed, when the platform has none (Linux), or on
  * macOS when the process lacks the Accessibility permission (the system is asked to show its prompt once; the next
  * launch after the user grants it succeeds). Independent of `installMouseHook`: install both in either order, dispose
- * either, and the other keeps delivering.
+ * either, and the other keeps delivering. The hook may be disposed from inside its own handler.
  */
 export function installKeyboardHook(handler: KeyHandler): KeyboardHook {
+  closeOrphans();
   const lib = (hookLib ??= openHookLib()); // throws when the library has no webview_keyboard_hook_install
-  const callback = new JSCallback(
-    (
-      event: number,
-      code: Pointer,
-      raw: number,
-      modifiers: number,
-      _arg: unknown,
-    ) =>
-      handler({
-        event,
-        code: new CString(code).toString(),
-        raw,
-        modifiers: modifiersFrom(modifiers),
-      })
-        ? 1
-        : 0,
-    {
-      args: [FFIType.i32, FFIType.ptr, FFIType.u32, FFIType.u32, FFIType.ptr],
-      returns: FFIType.i32,
-    },
+  const cb: HookCallback = new HookCallback(
+    new JSCallback(
+      (
+        event: number,
+        code: Pointer,
+        raw: number,
+        modifiers: number,
+        _arg: unknown,
+      ) =>
+        cb.guard(() =>
+          handler({
+            event,
+            code: new CString(code).toString(),
+            raw,
+            modifiers: modifiersFrom(modifiers),
+          }),
+        ),
+      {
+        args: [FFIType.i32, FFIType.ptr, FFIType.u32, FFIType.u32, FFIType.ptr],
+        returns: FFIType.i32,
+      },
+    ),
   );
-  const code = lib.symbols.webview_keyboard_hook_install(callback.ptr, null);
+  const code = lib.symbols.webview_keyboard_hook_install(cb.callback.ptr, null);
   if (code !== 0) {
-    callback.close();
+    cb.release();
     throw hookInstallError("keyboard", code);
   }
   let disposed = false;
@@ -94,7 +103,7 @@ export function installKeyboardHook(handler: KeyHandler): KeyboardHook {
       if (disposed) return;
       disposed = true;
       lib.symbols.webview_keyboard_hook_remove();
-      callback.close();
+      cb.release();
     },
   };
 }

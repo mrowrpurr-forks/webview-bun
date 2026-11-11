@@ -6,7 +6,13 @@
 
 import { FFIType, JSCallback, dlopen } from "bun:ffi";
 import { libraryPath } from "./ffi";
-import { hookInstallError, modifiersFrom, type Modifiers } from "./input-hooks";
+import {
+  closeOrphans,
+  HookCallback,
+  hookInstallError,
+  modifiersFrom,
+  type Modifiers,
+} from "./input-hooks";
 
 // Bound on first use, not with the rest of the library: a shipped library built without the fork's
 // functions (upstream's stock arm64 Linux build) must still load for everything else.
@@ -58,37 +64,40 @@ export type MouseHook = { dispose(): void };
  * Installs the process's mouse hook. Throws when one is already installed, when the platform has none (Linux), or on
  * macOS when the process lacks the Accessibility permission (the system is asked to show its prompt once; the next
  * launch after the user grants it succeeds). Independent of `installKeyboardHook`: install both in either order, dispose
- * either, and the other keeps delivering.
+ * either, and the other keeps delivering. The hook may be disposed from inside its own handler.
  */
 export function installMouseHook(handler: MouseHandler): MouseHook {
+  closeOrphans();
   const lib = (hookLib ??= openHookLib()); // throws when the library has no webview_mouse_hook_install
-  const callback = new JSCallback(
-    (
-      event: number,
-      x: number,
-      y: number,
-      wheel: number,
-      modifiers: number,
-      _arg: unknown,
-    ) =>
-      handler({ event, x, y, wheel, modifiers: modifiersFrom(modifiers) })
-        ? 1
-        : 0,
-    {
-      args: [
-        FFIType.i32,
-        FFIType.f64,
-        FFIType.f64,
-        FFIType.f64,
-        FFIType.u32,
-        FFIType.ptr,
-      ],
-      returns: FFIType.i32,
-    },
+  const cb: HookCallback = new HookCallback(
+    new JSCallback(
+      (
+        event: number,
+        x: number,
+        y: number,
+        wheel: number,
+        modifiers: number,
+        _arg: unknown,
+      ) =>
+        cb.guard(() =>
+          handler({ event, x, y, wheel, modifiers: modifiersFrom(modifiers) }),
+        ),
+      {
+        args: [
+          FFIType.i32,
+          FFIType.f64,
+          FFIType.f64,
+          FFIType.f64,
+          FFIType.u32,
+          FFIType.ptr,
+        ],
+        returns: FFIType.i32,
+      },
+    ),
   );
-  const code = lib.symbols.webview_mouse_hook_install(callback.ptr, null);
+  const code = lib.symbols.webview_mouse_hook_install(cb.callback.ptr, null);
   if (code !== 0) {
-    callback.close();
+    cb.release();
     throw hookInstallError("mouse", code);
   }
   let disposed = false;
@@ -97,7 +106,7 @@ export function installMouseHook(handler: MouseHandler): MouseHook {
       if (disposed) return;
       disposed = true;
       lib.symbols.webview_mouse_hook_remove();
-      callback.close();
+      cb.release();
     },
   };
 }

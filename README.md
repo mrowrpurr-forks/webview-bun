@@ -26,7 +26,7 @@ Both hooks: one of each per process, call on the UI thread before `run()`, keep 
 install or dispose them in any order (each is independent of the other). macOS: both listen on one
 session-level `CGEventTap`, which needs the Accessibility permission; without it the install throws after
 asking the system to show its prompt once. Linux: the install throws (no hook on that platform).
-`bun run examples/input-hooks.ts` shows both; `bun scripts/hook-probe.ts` (Windows) checks them against the
+`bun run examples/input-hooks.ts` shows both; `bun scripts/hook-probe.ts` (Windows and macOS) checks them against the
 shipped library with synthesised input.
 
 Webview is a tiny cross-platform library to make **web-based GUIs for desktop applications**.
