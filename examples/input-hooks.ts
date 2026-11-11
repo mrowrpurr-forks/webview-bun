@@ -103,29 +103,26 @@ const mods = (m: {
 
 const webview = new Webview();
 webview.title = "Input hooks";
-webview.setHTML(`<!doctype html>
-<body style="font: 14px monospace; margin: 1em">
-  <p id="state"></p>
-  <pre id="log"></pre>
-  <script>
-    const log = document.getElementById("log");
-    window.show = (line) => { log.textContent = (line + "\\n" + log.textContent).split("\\n").slice(0, 30).join("\\n"); };
-    window.state = (text) => { document.getElementById("state").textContent = text; };
-  </script>
-</body>`);
 const show = (line: string) => webview.eval(`show(${JSON.stringify(line)})`);
 
 const granted = askForPermissions();
 const on = granted && enableInputHooks(show);
-webview.eval(
-  `state(${JSON.stringify(
-    on
-      ? "Hooks on. Press keys and move the mouse anywhere on the system; Ctrl+Shift+K is swallowed."
-      : granted
-        ? "Hooks off: this platform has none, or the install failed (see the console)."
-        : "Hooks off: grant the permission in System Settings > Privacy & Security and run again.",
-  )})`,
-);
+const state = on
+  ? "Hooks on. Press keys and move the mouse anywhere on the system; Ctrl+Shift+K is swallowed."
+  : granted
+    ? "Hooks off: this platform has none, or the install failed (see the console)."
+    : "Hooks off: grant the permission in System Settings > Privacy & Security and run again.";
+
+// The state is part of the page: an eval before the page has loaded is dropped (macOS WebKit).
+webview.setHTML(`<!doctype html>
+<body style="font: 14px monospace; margin: 1em">
+  <p id="state">${state}</p>
+  <pre id="log"></pre>
+  <script>
+    const log = document.getElementById("log");
+    window.show = (line) => { log.textContent = (line + "\\n" + log.textContent).split("\\n").slice(0, 30).join("\\n"); };
+  </script>
+</body>`);
 
 webview.run();
 disableInputHooks();
