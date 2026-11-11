@@ -42,7 +42,11 @@ if (mac && !phases.includes(phaseArg as Phase)) {
 }
 const phase = mac ? (phaseArg as Phase) : "not-applicable";
 
-const app = await buildTestApp(scenario!, "permission-probe-app.ts", rebuild);
+const app = await buildTestApp(
+  `${scenario}-test`,
+  "scripts/permission-probe-app.ts",
+  rebuild,
+);
 if (phase === "before") await resetGrants(app);
 
 const report = join(dist, `${app.name}-report.json`);

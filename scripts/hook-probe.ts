@@ -33,8 +33,8 @@ const logFile = process.argv[process.argv.indexOf("--log") + 1];
 if (process.platform === "darwin" && !process.argv.includes("--log")) {
   const { buildTestApp, dist, runTestApp } = await import("./test-app");
   const app = await buildTestApp(
-    "hook-probe",
-    "hook-probe.ts",
+    "hook-probe-test",
+    "scripts/hook-probe.ts",
     process.argv.includes("--rebuild"),
   );
   const log = join(dist, `${app.name}.log`);

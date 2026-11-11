@@ -1,6 +1,6 @@
 // A script compiled into an app of its own, so that macOS grants (which belong to the app that
 // asks) land on it and the permission dialog carries its name. Used by scripts/permission-probe.ts
-// and scripts/hook-probe.ts. On Windows and Linux the "app" is a plain executable in dist/.
+// scripts/hook-probe.ts and scripts/example-app.ts. On Windows and Linux the "app" is a plain executable in dist/.
 //
 // A bundle is built once and reused, so its identity, and with it its grants, survive between
 // runs; it is rebuilt when its sources (the script, src/, build/) are newer than it, or on
@@ -34,20 +34,20 @@ export type TestApp = {
   binary: string;
 };
 
-// Compiles scripts/<entry> into dist/sweetview-<short>-test(.app) with bundle id
-// dev.n1h.sweetview.<short>-test, unless an up-to-date one is there already.
+// Compiles <entry> (a path under the package root) into dist/sweetview-<short>(.app) with bundle
+// id dev.n1h.sweetview.<short>, unless an up-to-date one is there already.
 export async function buildTestApp(
   short: string,
   entry: string,
   rebuild = false,
 ): Promise<TestApp> {
-  const name = `sweetview-${short}-test`;
-  const bundleId = `dev.n1h.sweetview.${short}-test`;
+  const name = `sweetview-${short}`;
+  const bundleId = `dev.n1h.sweetview.${short}`;
   const app = mac ? join(dist, `${name}.app`) : join(dist, name);
   const binary = mac
     ? join(app, "Contents", "MacOS", name)
     : join(dist, name + (process.platform === "win32" ? ".exe" : ""));
-  const source = join(root, "scripts", entry);
+  const source = join(root, entry);
 
   const stale =
     existsSync(binary) &&
