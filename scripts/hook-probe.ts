@@ -13,14 +13,48 @@
 // spaced apart so each hook call stands on its own; run it again on a miss.
 //
 //   bun scripts/hook-probe.ts
+//
+// On macOS the probe runs as an app of its own, dist/sweetview-hook-probe-test.app (scripts/test-app.ts
+// builds it), so that the tap's grant, Device Control and Data Access, lands on that app and not on
+// the terminal: the first run refuses and asks, allow it, the next run delivers. The app writes its
+// output to the --log file the terminal gives it and the terminal prints it.
 
 import { dlopen, FFIType, ptr } from "bun:ffi";
+import { appendFileSync, existsSync, readFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import {
   installKeyboardHook,
   installMouseHook,
   MouseEvent,
   type Modifiers,
 } from "../src/index";
+
+const logFile = process.argv[process.argv.indexOf("--log") + 1];
+if (process.platform === "darwin" && !process.argv.includes("--log")) {
+  const { buildTestApp, dist, runTestApp } = await import("./test-app");
+  const app = await buildTestApp(
+    "hook-probe",
+    "hook-probe.ts",
+    process.argv.includes("--rebuild"),
+  );
+  const log = join(dist, `${app.name}.log`);
+  rmSync(log, { force: true });
+  console.log(`running ${app.app}`);
+  await runTestApp(app, ["--log", log]);
+  if (!existsSync(log)) {
+    console.log("FAIL: the probe app wrote no log (did it launch?)");
+    process.exit(1);
+  }
+  const text = readFileSync(log, "utf8");
+  process.stdout.write(text);
+  process.exit(/^OK:/m.test(text) ? 0 : 1);
+}
+if (logFile) {
+  const toLog = (...parts: unknown[]) =>
+    appendFileSync(logFile, parts.map(String).join(" ") + "\n");
+  console.log = toLog;
+  console.error = toLog;
+}
 
 // What the probe synthesises, in platform terms: a modifier or key by its platform code, a mouse move, a wheel notch,
 // and a pump of the thread's queue, so the steps below read the same on both platforms.
@@ -249,20 +283,32 @@ const note = (line: string) => seen.push({ n: step, line });
 
 // Keyboard first, then mouse: the order the library must not care about. The keyboard handler disposes its own hook
 // when it sees Alt go up, which is the disposal an app does (on Escape, say) and the one that must not crash.
-const keys = installKeyboardHook((m) => {
-  note(
-    `key ${keyEventName[m.event]} ${m.code} raw=0x${m.raw.toString(16)} mods=${mods(m.modifiers)}`,
+let keys: ReturnType<typeof installKeyboardHook>;
+let mouseHook: ReturnType<typeof installMouseHook>;
+try {
+  keys = installKeyboardHook((m) => {
+    note(
+      `key ${keyEventName[m.event]} ${m.code} raw=0x${m.raw.toString(16)} mods=${mods(m.modifiers)}`,
+    );
+    if (m.event === 1 && m.code === "AltLeft") keys.dispose();
+    return false;
+  });
+  mouseHook = installMouseHook((m) => {
+    if (m.event === MouseEvent.Move) moves++;
+    note(
+      `mouse ${mouseEventName[m.event]}${m.wheel ? ` wheel=${m.wheel}` : ""} mods=${mods(m.modifiers)}`,
+    );
+    return false;
+  });
+} catch (err) {
+  console.log(
+    `FAIL: install refused: ${err instanceof Error ? err.message : String(err)}`,
   );
-  if (m.event === 1 && m.code === "AltLeft") keys.dispose();
-  return false;
-});
-const mouseHook = installMouseHook((m) => {
-  if (m.event === MouseEvent.Move) moves++;
-  note(
-    `mouse ${mouseEventName[m.event]}${m.wheel ? ` wheel=${m.wheel}` : ""} mods=${mods(m.modifiers)}`,
+  console.log(
+    "(no grant yet: the system asked once; allow it and run the probe again)",
   );
-  return false;
-});
+  process.exit(1);
+}
 console.log("both hooks installed (keyboard, then mouse); pumping");
 
 const pump = setInterval(() => input.pump(), 1);
