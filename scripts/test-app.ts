@@ -4,8 +4,9 @@
 //
 // A bundle is built once and reused, so its identity, and with it its grants, survive between
 // runs; it is rebuilt when its sources (the script, src/, build/) are newer than it, or on
-// --rebuild, after which macOS forgets its grants, because an ad-hoc signature changes with the
-// binary.
+// --rebuild. An ad-hoc signature changes with the binary, so a rebuilt app's grant record is
+// stale, and macOS neither honours it nor asks again while it exists: the rebuild resets it, and
+// the next run asks afresh.
 
 import {
   chmodSync,
@@ -84,9 +85,10 @@ export async function buildTestApp(
       );
       chmodSync(binary, 0o755);
       await $`codesign --sign - --force --deep ${app}`.quiet();
-      console.log(
-        `built ${app} (${bundleId}); macOS forgets its grants whenever it is rebuilt`,
-      );
+      console.log(`built ${app} (${bundleId})`);
+      // The grant record of the previous binary is stale now: macOS neither honours it nor asks
+      // again while it is there, so it goes, and the next run asks afresh.
+      await resetGrants({ name, bundleId, app, binary });
     }
   }
   return { name, bundleId, app, binary };
