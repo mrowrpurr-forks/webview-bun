@@ -1,8 +1,6 @@
 # sweetview-webview-bun
 
-[bun](https://bun.sh/) bindings for
-[sweetview-webview](https://github.com/n0t-invented-here/sweetview-webview), a fork of
-[webview](https://github.com/webview/webview/): **web-based GUIs for desktop applications**.
+[bun](https://bun.sh/) bindings for [sweetview-webview](https://github.com/n0t-invented-here/sweetview-webview), a fork of [webview](https://github.com/webview/webview/): **web-based GUIs for desktop applications**.
 
 ![](banner.png)
 
