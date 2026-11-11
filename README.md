@@ -41,9 +41,6 @@ wrapped by the class; call them over `bun:ffi` against the library at `libraryPa
 Two system-wide hooks, from `webview_mouse_hook_install` / `webview_mouse_hook_remove` and
 `webview_keyboard_hook_install` / `webview_keyboard_hook_remove`:
 
-Two system-wide hooks, wrapped from `webview_mouse_hook_install` / `webview_mouse_hook_remove` and
-`webview_keyboard_hook_install` / `webview_keyboard_hook_remove`:
-
 - `installMouseHook(handler)` returns `{ dispose() }`. The handler gets `{ event, x, y, wheel, modifiers }`
   (`MouseEvent.Move`, `LeftDown`, `LeftUp`, `RightDown`, `RightUp`, `MiddleDown`, `MiddleUp`, `Wheel`;
   screen units, origin at the top-left of the primary display; wheel in notches, positive away from the
