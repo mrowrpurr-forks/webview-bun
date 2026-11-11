@@ -175,10 +175,6 @@ brew install cmake ninja clang
 
 The compiled library file can be found inside the `build` folder.
 
-#### Building for arm64 from x86_64
-
-To create an arm64 shared library from a x86_64 host, checkout [setupARM64.sh](https://github.com/tr1ckydev/webview-bun/blob/main/setupARM64.sh). DO NOT execute the file (the .sh extension has been kept for syntax highlighting), rather read the comments and copy and paste the commands line by line.
-
 ### Customization
 
 - 🐧 For linux, if you want to use a different WebkitGTK version, change the cmake `WEBVIEW_WEBKITGTK_API` option in _build.ts_ to one of the [available values](https://github.com/webview/webview?tab=readme-ov-file#linux-specific-options). Be sure to first install the corresponding version libraries.
